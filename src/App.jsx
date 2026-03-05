@@ -103,24 +103,30 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // --- 📦 データ取得 ---
+  // --- 📦 データ取得 (staffs は order 順に取得) ---
   const fetchStaffs = useCallback(async () => {
-    const q = query(collection(db, 'staffs'), orderBy('name', 'asc'));
+    const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
     const snapshot = await getDocs(q);
     const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // 初期データ投入時に order を付与
+    if (list.length === 0) {
+      const initial = [
+        { name: 'KANA', color: '#bae6fd', target: 39, order: 0 },
+        { name: 'RYUSHIN', color: '#bbf7d0', target: 38, order: 1 },
+        { name: 'SAYAKA', color: '#e9d5ff', target: 24, order: 2 },
+        { name: 'EITO', color: '#fecdd3', target: 24, order: 3 },
+        { name: 'KEITO', color: '#e2e8f0', target: 24, order: 4 },
+        { name: 'DAISUKE', color: '#bfdbfe', target: 24, order: 5 },
+        { name: 'AIRA', color: '#fed7aa', target: 24, order: 6 },
+      ];
+      for (const s of initial) await addDoc(collection(db, 'staffs'), s);
+      window.location.reload();
+      return;
+    }
     setStaffs(list);
     if (!selectedStaff && list.length > 0) setSelectedStaff(list[0].name);
   }, [selectedStaff]);
-
-  const fetchAvailableWeeks = async () => {
-    const q = query(collection(db, 'shifts'));
-    const snapshot = await getDocs(q);
-    const weeks = new Set();
-    snapshot.docs.forEach((doc) => {
-      if (doc.data().weekId) weeks.add(doc.data().weekId);
-    });
-    setAvailableWeeks(Array.from(weeks).sort().reverse());
-  };
 
   useEffect(() => {
     fetchStaffs();
@@ -136,14 +142,77 @@ function App() {
     fetchShifts();
   }, [weekId]);
 
-  const updateShiftsSafely = useCallback((newItemsArray) => {
-    setShifts((prev) => {
-      const uniqueMap = new Map();
-      prev.forEach((s) => uniqueMap.set(s.id, s));
-      newItemsArray.forEach((s) => uniqueMap.set(s.id, s));
-      return Array.from(uniqueMap.values());
+  // --- 👥 スタッフ管理ロジック (並べ替え) ---
+  const handleMoveStaff = async (index, direction) => {
+    if (isProcessing) return;
+    const newStaffs = [...staffs];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= newStaffs.length) return;
+
+    setIsProcessing(true);
+    // 配列内をスワップ
+    [newStaffs[index], newStaffs[targetIndex]] = [
+      newStaffs[targetIndex],
+      newStaffs[index],
+    ];
+
+    // Firestoreを一括更新 (Batch)
+    const batch = writeBatch(db);
+    newStaffs.forEach((s, i) => {
+      const ref = doc(db, 'staffs', s.id);
+      batch.update(ref, { order: i });
+      s.order = i; // ローカル状態も更新
     });
-  }, []);
+
+    try {
+      await batch.commit();
+      setStaffs(newStaffs);
+    } catch (e) {
+      console.error(e);
+    }
+    setIsProcessing(false);
+  };
+
+  const handleUpdateShift = async (e) => {
+    e.preventDefault();
+    if (!editingShift || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const total = calcTotalHours(
+        editingShift.startTime,
+        editingShift.endTime,
+        editingShift.breakHours
+      );
+      const { id, ...dataToSave } = editingShift;
+      await updateDoc(doc(db, 'shifts', id), {
+        ...dataToSave,
+        totalHours: total,
+      });
+      setShifts((prev) =>
+        prev.map((s) =>
+          s.id === id ? { ...editingShift, totalHours: total } : s
+        )
+      );
+      setEditingShift(null);
+    } catch (error) {
+      console.error(error);
+    }
+    setIsProcessing(false);
+  };
+
+  const handleDeleteShift = async () => {
+    if (!editingShift || isProcessing) return;
+    if (!window.confirm('このシフトを削除しますか？')) return;
+    setIsProcessing(true);
+    try {
+      await deleteDoc(doc(db, 'shifts', editingShift.id));
+      setShifts((prev) => prev.filter((s) => s.id !== editingShift.id));
+      setEditingShift(null);
+    } catch (error) {
+      console.error(error);
+    }
+    setIsProcessing(false);
+  };
 
   const handleAddShift = async (day, time, lane) => {
     if (isProcessing || !selectedStaff) return;
@@ -241,6 +310,16 @@ function App() {
     };
   }, [handlePointerMove, handlePointerUp]);
 
+  const fetchAvailableWeeks = async () => {
+    const q = query(collection(db, 'shifts'));
+    const snapshot = await getDocs(q);
+    const weeks = new Set();
+    snapshot.docs.forEach((doc) => {
+      if (doc.data().weekId) weeks.add(doc.data().weekId);
+    });
+    setAvailableWeeks(Array.from(weeks).sort().reverse());
+  };
+
   const executeCopy = async () => {
     if (!selectedCopyWeek || isProcessing) return;
     setIsProcessing(true);
@@ -313,7 +392,6 @@ function App() {
           </div>
 
           {/* 💻 PC用スタッフバッジリスト (画面が md 以上のときに表示) */}
-          {/* py-2 を追加して上下の切り欠けを防止 */}
           <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar px-2 border-r border-slate-100 mr-2 pr-2 py-2">
             {staffs.map((s) => (
               <button
@@ -381,6 +459,7 @@ function App() {
       </header>
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
+        {/* --- ✨ ダッシュボード (スタッフ管理の並び順で表示) --- */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
           {dashboardData.map((d) => (
             <div
@@ -560,10 +639,10 @@ function App() {
         </div>
       </div>
 
-      {/* モーダル類 (以前と同じ) */}
+      {/* --- モーダル (並べ替えボタン追加) --- */}
       {showStaffModal && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
           onClick={() => setShowStaffModal(false)}
         >
           <div
@@ -580,11 +659,27 @@ function App() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {staffs.map((s) => (
+              {staffs.map((s, index) => (
                 <div
                   key={s.id}
                   className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl group transition-colors hover:bg-slate-100"
                 >
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => handleMoveStaff(index, -1)}
+                      disabled={index === 0}
+                      className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0 transition-colors"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      onClick={() => handleMoveStaff(index, 1)}
+                      disabled={index === staffs.length - 1}
+                      className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0 transition-colors"
+                    >
+                      ▼
+                    </button>
+                  </div>
                   <div
                     className="w-10 h-10 rounded-full shadow-inner border-2 border-white"
                     style={{ backgroundColor: s.color }}
@@ -612,12 +707,15 @@ function App() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                const docRef = await addDoc(collection(db, 'staffs'), newStaff);
-                setStaffs(
-                  [...staffs, { id: docRef.id, ...newStaff }].sort((a, b) =>
-                    a.name.localeCompare(b.name)
-                  )
-                );
+                const newOrder = staffs.length;
+                const docRef = await addDoc(collection(db, 'staffs'), {
+                  ...newStaff,
+                  order: newOrder,
+                });
+                setStaffs([
+                  ...staffs,
+                  { id: docRef.id, ...newStaff, order: newOrder },
+                ]);
                 setNewStaff({ name: '', color: '#cbd5e1', target: 24 });
               }}
               className="p-6 border-t bg-slate-50 space-y-4"
@@ -677,12 +775,9 @@ function App() {
             className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-black mb-6 text-center">
+            <h2 className="text-xl font-bold mb-6 text-center">
               過去からコピー
             </h2>
-            <p className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest text-center">
-              Copy Source Week
-            </p>
             <select
               className="w-full bg-slate-100 border-none rounded-2xl px-4 py-4 font-bold mb-8 appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500"
               value={selectedCopyWeek}
@@ -706,7 +801,7 @@ function App() {
                   await executeCopy();
                   setShowCopyModal(false);
                 }}
-                className="flex-[2] bg-indigo-600 text-white font-bold py-3 rounded-2xl shadow-lg active:scale-95 transition-all"
+                className="flex-[2] bg-indigo-600 text-white font-black py-3 rounded-2xl shadow-lg active:scale-95 transition-all"
               >
                 コピーを実行
               </button>
@@ -717,7 +812,7 @@ function App() {
 
       {editingShift && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
           onClick={() => setEditingShift(null)}
         >
           <div
@@ -727,93 +822,50 @@ function App() {
             <h2 className="text-xl font-black mb-6 text-center text-slate-800">
               {editingShift.staffName}
             </h2>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const total = calcTotalHours(
-                  editingShift.startTime,
-                  editingShift.endTime,
-                  editingShift.breakHours
-                );
-                await updateDoc(doc(db, 'shifts', editingShift.id), {
-                  ...editingShift,
-                  totalHours: total,
-                });
-                setShifts(
-                  shifts.map((s) =>
-                    s.id === editingShift.id
-                      ? { ...editingShift, totalHours: total }
-                      : s
-                  )
-                );
-                setEditingShift(null);
-              }}
-              className="space-y-4"
-            >
+            <form onSubmit={handleUpdateShift} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 ml-1">
-                    START
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold"
-                    value={editingShift.startTime}
-                    onChange={(e) =>
-                      setEditingShift({
-                        ...editingShift,
-                        startTime: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 ml-1">
-                    END
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold"
-                    value={editingShift.endTime}
-                    onChange={(e) =>
-                      setEditingShift({
-                        ...editingShift,
-                        endTime: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 ml-1">
-                  BREAK
-                </label>
-                <select
-                  className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold appearance-none"
-                  value={editingShift.breakHours}
+                <input
+                  type="time"
+                  className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold"
+                  value={editingShift.startTime}
                   onChange={(e) =>
                     setEditingShift({
                       ...editingShift,
-                      breakHours: parseFloat(e.target.value),
+                      startTime: e.target.value,
                     })
                   }
-                >
-                  <option value="0">休憩なし</option>
-                  <option value="0.5">30分</option>
-                  <option value="1">1時間</option>
-                  <option value="1.5">1.5時間</option>
-                </select>
+                />
+                <input
+                  type="time"
+                  className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold"
+                  value={editingShift.endTime}
+                  onChange={(e) =>
+                    setEditingShift({
+                      ...editingShift,
+                      endTime: e.target.value,
+                    })
+                  }
+                />
               </div>
+              <select
+                className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 font-bold appearance-none"
+                value={editingShift.breakHours}
+                onChange={(e) =>
+                  setEditingShift({
+                    ...editingShift,
+                    breakHours: parseFloat(e.target.value),
+                  })
+                }
+              >
+                <option value="0">休憩なし</option>
+                <option value="0.5">30分</option>
+                <option value="1">1時間</option>
+                <option value="1.5">1.5時間</option>
+              </select>
               <div className="flex gap-3 pt-6">
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (window.confirm('このシフトを削除しますか？')) {
-                      await deleteDoc(doc(db, 'shifts', editingShift.id));
-                      setShifts(shifts.filter((s) => s.id !== editingShift.id));
-                      setEditingShift(null);
-                    }
-                  }}
+                  onClick={handleDeleteShift}
                   className="flex-1 bg-rose-50 text-rose-600 font-bold py-3 rounded-xl transition-colors hover:bg-rose-100"
                 >
                   削除
