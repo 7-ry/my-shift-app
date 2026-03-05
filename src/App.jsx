@@ -43,19 +43,20 @@ const calcTotalHours = (start, end, breakHours) => {
   return Math.floor(total * 100) / 100;
 };
 
-const getWeekDisplayVerbose = (weekId) => {
+// 週ID（2026-W10）を「3月2日〜3月8日」形式に変換する関数
+const getWeekRangeLabel = (weekId) => {
   if (!weekId) return '';
   const [year, week] = weekId.split('-W').map(Number);
   const simple = new Date(year, 0, 1 + (week - 1) * 7);
   const dow = simple.getDay();
-  const ISOweekStart = simple;
+  const ISOweekStart = new Date(simple);
   if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
   else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
   const end = new Date(ISOweekStart);
   end.setDate(ISOweekStart.getDate() + 6);
-  return `${ISOweekStart.getMonth() + 1}/${ISOweekStart.getDate()} - ${
+  return `${ISOweekStart.getMonth() + 1}月${ISOweekStart.getDate()}日〜${
     end.getMonth() + 1
-  }/${end.getDate()}`;
+  }月${end.getDate()}日`;
 };
 
 const getCurrentWeekId = () => {
@@ -80,10 +81,11 @@ function App() {
     () => localStorage.getItem('lastViewedWeek') || getCurrentWeekId()
   );
 
-  // モーダル・メニュー管理
   const [showMenu, setShowMenu] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
+  const [availableWeeks, setAvailableWeeks] = useState([]); // コピー可能な週リスト
+  const [selectedCopyWeek, setSelectedCopyWeek] = useState('');
   const menuRef = useRef(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -125,6 +127,21 @@ function App() {
     setStaffs(list);
     if (!selectedStaff && list.length > 0) setSelectedStaff(list[0].name);
   }, [selectedStaff]);
+
+  // Firebaseからコピー可能な「過去の週」のリストを取得
+  const fetchAvailableWeeks = async () => {
+    const q = query(collection(db, 'shifts'));
+    const snapshot = await getDocs(q);
+    const weeks = new Set();
+    snapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      if (data.weekId && data.weekId !== weekId) weeks.add(data.weekId);
+    });
+    // 新しい順に並び替え
+    const sorted = Array.from(weeks).sort().reverse();
+    setAvailableWeeks(sorted);
+    if (sorted.length > 0) setSelectedCopyWeek(sorted[0]);
+  };
 
   useEffect(() => {
     fetchStaffs();
@@ -181,8 +198,9 @@ function App() {
     if (isProcessing || !selectedStaff) return;
     setIsProcessing(true);
     const staffInfo = staffs.find((s) => s.name === selectedStaff);
-    const startMins = timeToMins(time);
-    const endStr = minsToTime(Math.min(startMins + 120, timeToMins('23:30')));
+    const endStr = minsToTime(
+      Math.min(timeToMins(time) + 120, timeToMins('23:30'))
+    );
     const newShift = {
       staffName: selectedStaff,
       day,
@@ -201,20 +219,6 @@ function App() {
       console.error(e);
     }
     setIsProcessing(false);
-  };
-
-  const handlePointerDown = (e, shift, type) => {
-    e.stopPropagation();
-    e.target.setPointerCapture(e.pointerId);
-    setDragInfo({
-      id: shift.id,
-      type,
-      startY: e.clientY,
-      initStartMins: timeToMins(shift.startTime),
-      initEndMins: timeToMins(shift.endTime),
-      initDay: shift.day,
-      initLane: shift.lane,
-    });
   };
 
   const handlePointerMove = useCallback(
@@ -243,7 +247,6 @@ function App() {
             }
           } else if (dragInfo.type === 'resize-top') nS += deltaMins;
           else if (dragInfo.type === 'resize-bottom') nE += deltaMins;
-
           const sStr = minsToTime(Math.max(timeToMins('09:00'), nS));
           const eStr = minsToTime(Math.min(timeToMins('24:00'), nE));
           return {
@@ -299,14 +302,50 @@ function App() {
     };
   });
 
+  const executeCopy = async () => {
+    if (!selectedCopyWeek || isProcessing) return;
+    const currentQ = query(
+      collection(db, 'shifts'),
+      where('weekId', '==', weekId)
+    );
+    const currentSnap = await getDocs(currentQ);
+    if (
+      !currentSnap.empty &&
+      !window.confirm(
+        '現在の週には既にデータが存在します。追加でコピーしますか？'
+      )
+    )
+      return;
+
+    setIsProcessing(true);
+    try {
+      const q = query(
+        collection(db, 'shifts'),
+        where('weekId', '==', selectedCopyWeek)
+      );
+      const snap = await getDocs(q);
+      const batch = writeBatch(db);
+      snap.forEach((d) => {
+        const data = d.data();
+        const newRef = doc(collection(db, 'shifts'));
+        batch.set(newRef, { ...data, weekId: weekId });
+      });
+      await batch.commit();
+      window.location.reload(); // 確実に反映させるためリロード
+    } catch (error) {
+      console.error(error);
+    }
+    setIsProcessing(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-10 selection:bg-blue-200">
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm px-6 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="flex flex-col">
             <h1 className="text-xl font-black tracking-tight">Shift Builder</h1>
             <span className="text-[10px] font-bold text-blue-600 uppercase">
-              {getWeekDisplayVerbose(weekId)}
+              {getWeekRangeLabel(weekId)}
             </span>
           </div>
           <input
@@ -318,7 +357,6 @@ function App() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Staff selection bar */}
           <div className="flex items-center gap-1.5 border-r border-slate-200 pr-4 mr-2">
             {staffs.map((s) => (
               <button
@@ -336,7 +374,6 @@ function App() {
             ))}
           </div>
 
-          {/* ⚙️ Action Menu Dropdown */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -348,6 +385,7 @@ function App() {
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
                 <button
                   onClick={() => {
+                    fetchAvailableWeeks();
                     setShowCopyModal(true);
                     setShowMenu(false);
                   }}
@@ -427,32 +465,32 @@ function App() {
           ))}
         </div>
 
-        {/* Table */}
+        {/* Table Wrapper for Sticky Header */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden relative">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse table-fixed min-w-[1400px] select-none">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="w-16 border-b border-r-2 border-slate-200 sticky left-0 z-30 p-2 text-[10px] font-bold text-slate-400 bg-white uppercase">
+              <thead className="sticky top-0 z-40 shadow-sm">
+                <tr className="bg-white">
+                  <th className="w-16 border-b border-r-2 border-slate-200 sticky left-0 z-50 p-2 text-[10px] font-bold text-slate-400 bg-white uppercase">
                     Time
                   </th>
                   {DAYS.map((day) => (
                     <th
                       key={day}
                       colSpan={4}
-                      className="border-b border-r-2 border-slate-200 p-3 text-center text-xs font-black text-slate-600 tracking-widest uppercase"
+                      className="border-b border-r-2 border-slate-200 p-3 text-center text-xs font-black text-slate-600 tracking-widest uppercase bg-white"
                     >
                       {day}
                     </th>
                   ))}
                 </tr>
-                <tr className="bg-slate-50/30">
-                  <th className="border-b border-r-2 border-slate-200 sticky left-0 z-30 h-6 bg-white"></th>
+                <tr className="bg-slate-50/50">
+                  <th className="border-b border-r-2 border-slate-200 sticky left-0 z-50 h-6 bg-slate-50"></th>
                   {DAYS.map((day) =>
                     LANES.map((lane) => (
                       <th
                         key={`${day}-${lane}`}
-                        className={`border-b border-slate-100 text-[8px] font-black text-slate-300 w-12 text-center ${
+                        className={`border-b border-slate-100 text-[8px] font-black text-slate-300 w-12 text-center bg-white ${
                           lane === 4
                             ? 'border-r-2 border-r-slate-200'
                             : 'border-r border-r-slate-50'
@@ -467,7 +505,7 @@ function App() {
               <tbody>
                 {TIMES.map((time) => (
                   <tr key={time} className="h-10 group">
-                    <td className="border-b border-r-2 border-slate-200 text-center text-[10px] font-black text-slate-400 bg-white sticky left-0 z-20 group-hover:bg-slate-50 transition-colors">
+                    <td className="border-b border-r-2 border-slate-200 text-center text-[10px] font-black text-slate-400 bg-white sticky left-0 z-30 group-hover:bg-slate-50 transition-colors">
                       <span
                         className={
                           time.endsWith(':00')
@@ -651,6 +689,60 @@ function App() {
         </div>
       )}
 
+      {/* Improved Copy Modal */}
+      {showCopyModal && (
+        <div
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          onClick={() => setShowCopyModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-black mb-6">過去からコピー</h2>
+            <p className="text-xs font-bold text-slate-500 mb-2">
+              コピー元の週を選択してください
+            </p>
+
+            <select
+              className="w-full bg-slate-100 border-none rounded-2xl px-4 py-4 font-bold mb-8 appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500"
+              value={selectedCopyWeek}
+              onChange={(e) => setSelectedCopyWeek(e.target.value)}
+            >
+              {availableWeeks.length > 0 ? (
+                availableWeeks.map((w) => (
+                  <option key={w} value={w}>
+                    {getWeekRangeLabel(w)}
+                  </option>
+                ))
+              ) : (
+                <option value="">データなし</option>
+              )}
+            </select>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCopyModal(false)}
+                className="flex-1 py-3 font-bold text-slate-500"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={async () => {
+                  await executeCopy();
+                  setShowCopyModal(false);
+                }}
+                disabled={!selectedCopyWeek || isProcessing}
+                className="flex-[2] bg-indigo-600 text-white font-black py-3 rounded-2xl shadow-lg active:scale-95 transition-all disabled:opacity-50"
+              >
+                コピーを実行
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Editing Modal (維持) */}
       {editingShift && (
         <div
           className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
@@ -709,7 +801,7 @@ function App() {
                   BREAK HOURS
                 </label>
                 <select
-                  className="w-full bg-slate-100 border-none rounded-2xl px-4 py-3 font-bold appearance-none"
+                  className="w-full bg-slate-100 border-none rounded-2xl px-4 py-3 font-bold"
                   value={editingShift.breakHours}
                   onChange={(e) =>
                     setEditingShift({
@@ -740,52 +832,12 @@ function App() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] bg-slate-900 text-white font-black py-3 rounded-2xl shadow-lg active:scale-95 transition-all"
+                  className="flex-[2] bg-slate-900 text-white font-black py-3 rounded-2xl shadow-lg"
                 >
                   保存する
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {showCopyModal && (
-        <div
-          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
-          onClick={() => setShowCopyModal(false)}
-        >
-          <div
-            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-black mb-6">過去からコピー</h2>
-            <p className="text-xs font-bold text-slate-500 mb-4">
-              コピー元の週IDを入力してください（例: 2026-W10）
-            </p>
-            <input
-              type="text"
-              placeholder="2026-W10"
-              className="w-full bg-slate-100 border-none rounded-2xl px-4 py-3 font-bold mb-6"
-              onChange={(e) => setSelectedCopyWeek(e.target.value)}
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="flex-1 py-3 font-bold text-slate-500"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={async () => {
-                  await executeCopy();
-                  setShowCopyModal(false);
-                }}
-                className="flex-[2] bg-indigo-600 text-white font-black py-3 rounded-2xl shadow-lg active:scale-95 transition-all"
-              >
-                コピーを実行
-              </button>
-            </div>
           </div>
         </div>
       )}
