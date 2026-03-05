@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from './firebase';
 import {
   collection,
@@ -21,7 +21,7 @@ for (let h = 9; h <= 23; h++) {
   if (h !== 23) TIMES.push(`${h.toString().padStart(2, '0')}:30`);
 }
 
-const ROW_HEIGHT = 36;
+const ROW_HEIGHT = 40;
 
 // --- 🌟 ヘルパー関数 ---
 const timeToMins = (timeStr) => {
@@ -51,18 +51,11 @@ const getWeekDisplayVerbose = (weekId) => {
   const ISOweekStart = simple;
   if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
   else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-
   const end = new Date(ISOweekStart);
   end.setDate(ISOweekStart.getDate() + 6);
-
-  const startMonth = ISOweekStart.getMonth() + 1;
-  const startDate = ISOweekStart.getDate();
-  const endMonth = end.getMonth() + 1;
-  const endDate = end.getDate();
-
-  return `${startMonth}月 第${Math.ceil(
-    startDate / 7
-  )}週 (${startMonth}/${startDate} - ${endMonth}/${endDate})`;
+  return `${ISOweekStart.getMonth() + 1}/${ISOweekStart.getDate()} - ${
+    end.getMonth() + 1
+  }/${end.getDate()}`;
 };
 
 const getCurrentWeekId = () => {
@@ -78,39 +71,43 @@ const getCurrentWeekId = () => {
 };
 
 function App() {
-  const [staffs, setStaffs] = useState([]); // 動的スタッフリスト
+  const [staffs, setStaffs] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [shifts, setShifts] = useState([]);
   const [editingShift, setEditingShift] = useState(null);
   const [dragInfo, setDragInfo] = useState(null);
+  const [weekId, setWeekId] = useState(
+    () => localStorage.getItem('lastViewedWeek') || getCurrentWeekId()
+  );
 
-  const [weekId, setWeekId] = useState(() => {
-    const savedWeek = localStorage.getItem('lastViewedWeek');
-    return savedWeek ? savedWeek : getCurrentWeekId();
-  });
-
+  // モーダル・メニュー管理
+  const [showMenu, setShowMenu] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
-  const [showStaffModal, setShowStaffModal] = useState(false); // スタッフ管理モーダル
-  const [availableWeeks, setAvailableWeeks] = useState([]);
-  const [selectedCopyWeek, setSelectedCopyWeek] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const menuRef = useRef(null);
 
-  // 新規スタッフ入力用
+  const [isProcessing, setIsProcessing] = useState(false);
   const [newStaff, setNewStaff] = useState({
     name: '',
     color: '#cbd5e1',
     target: 24,
   });
 
-  // --- 📦 データ取得 (スタッフ & シフト) ---
+  // メニュー外クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target))
+        setShowMenu(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  // スタッフリスト取得
+  // --- 📦 データ取得 ---
   const fetchStaffs = useCallback(async () => {
     const q = query(collection(db, 'staffs'), orderBy('name', 'asc'));
     const snapshot = await getDocs(q);
     const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-    // 初回起動時（データが空の場合）の初期設定
     if (list.length === 0) {
       const initial = [
         { name: 'KANA', color: '#bae6fd', target: 39 },
@@ -121,9 +118,7 @@ function App() {
         { name: 'DAISUKE', color: '#bfdbfe', target: 24 },
         { name: 'AIRA', color: '#fed7aa', target: 24 },
       ];
-      for (const s of initial) {
-        await addDoc(collection(db, 'staffs'), s);
-      }
+      for (const s of initial) await addDoc(collection(db, 'staffs'), s);
       window.location.reload();
       return;
     }
@@ -140,11 +135,7 @@ function App() {
     const fetchShifts = async () => {
       const q = query(collection(db, 'shifts'), where('weekId', '==', weekId));
       const querySnapshot = await getDocs(q);
-      const loadedShifts = [];
-      querySnapshot.forEach((doc) => {
-        loadedShifts.push({ id: doc.id, ...doc.data() });
-      });
-      setShifts(loadedShifts);
+      setShifts(querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
     fetchShifts();
   }, [weekId]);
@@ -157,8 +148,6 @@ function App() {
       return Array.from(uniqueMap.values());
     });
   }, []);
-
-  // --- 👥 スタッフ管理ロジック ---
 
   const handleAddStaff = async (e) => {
     e.preventDefault();
@@ -179,83 +168,32 @@ function App() {
   };
 
   const handleDeleteStaff = async (id, name) => {
-    if (
-      !window.confirm(
-        `${name} さんを削除しますか？\n（※既存のシフトデータは残りますが、管理から外れます）`
-      )
-    )
-      return;
-    setIsProcessing(true);
+    if (!window.confirm(`${name} さんを削除しますか？`)) return;
     try {
       await deleteDoc(doc(db, 'staffs', id));
       setStaffs(staffs.filter((s) => s.id !== id));
     } catch (err) {
       console.error(err);
     }
-    setIsProcessing(false);
-  };
-
-  // --- 📅 シフト管理ロジック ---
-
-  const executeCopy = async () => {
-    if (!selectedCopyWeek || isProcessing) return;
-    const currentQ = query(
-      collection(db, 'shifts'),
-      where('weekId', '==', weekId)
-    );
-    const currentSnap = await getDocs(currentQ);
-    if (
-      !currentSnap.empty &&
-      !window.confirm(
-        '現在の週には既にデータが存在します。追加でコピーしますか？'
-      )
-    )
-      return;
-
-    setIsProcessing(true);
-    try {
-      const q = query(
-        collection(db, 'shifts'),
-        where('weekId', '==', selectedCopyWeek)
-      );
-      const snap = await getDocs(q);
-      const batch = writeBatch(db);
-      snap.forEach((d) => {
-        const data = d.data();
-        const newRef = doc(collection(db, 'shifts'));
-        batch.set(newRef, { ...data, weekId: weekId });
-      });
-      await batch.commit();
-      window.location.reload();
-    } catch (error) {
-      console.error(error);
-    }
-    setIsProcessing(false);
   };
 
   const handleAddShift = async (day, time, lane) => {
-    if (isProcessing) return;
+    if (isProcessing || !selectedStaff) return;
+    setIsProcessing(true);
     const staffInfo = staffs.find((s) => s.name === selectedStaff);
-    if (!staffInfo) return;
-
     const startMins = timeToMins(time);
-    const endMins = Math.min(startMins + 120, timeToMins('23:30'));
-    const startStr = minsToTime(startMins);
-    const endStr = minsToTime(endMins);
-
+    const endStr = minsToTime(Math.min(startMins + 120, timeToMins('23:30')));
     const newShift = {
       staffName: selectedStaff,
-      day: day,
-      startTime: startStr,
+      day,
+      startTime: time,
       endTime: endStr,
-      lane: lane,
+      lane,
       breakHours: 0,
-      totalHours: calcTotalHours(startStr, endStr, 0),
+      totalHours: calcTotalHours(time, endStr, 0),
       color: staffInfo.color,
-      weekId: weekId,
+      weekId,
     };
-
-    setIsProcessing(true);
     try {
       const docRef = await addDoc(collection(db, 'shifts'), newShift);
       updateShiftsSafely([{ id: docRef.id, ...newShift }]);
@@ -270,7 +208,7 @@ function App() {
     e.target.setPointerCapture(e.pointerId);
     setDragInfo({
       id: shift.id,
-      type: type,
+      type,
       startY: e.clientY,
       initStartMins: timeToMins(shift.startTime),
       initEndMins: timeToMins(shift.endTime),
@@ -289,37 +227,32 @@ function App() {
         (el) => el.tagName === 'TD' && el.dataset.day
       );
 
-      setShifts((prevShifts) =>
-        prevShifts.map((s) => {
+      setShifts((prev) =>
+        prev.map((s) => {
           if (s.id !== dragInfo.id) return s;
-          let newStartMins = dragInfo.initStartMins,
-            newEndMins = dragInfo.initEndMins,
-            newDay = s.day,
-            newLane = s.lane;
+          let nS = dragInfo.initStartMins,
+            nE = dragInfo.initEndMins,
+            nD = s.day,
+            nL = s.lane;
           if (dragInfo.type === 'move') {
-            newStartMins += deltaMins;
-            newEndMins += deltaMins;
+            nS += deltaMins;
+            nE += deltaMins;
             if (targetTd) {
-              newDay = targetTd.dataset.day;
-              newLane = Number(targetTd.dataset.lane);
+              nD = targetTd.dataset.day;
+              nL = Number(targetTd.dataset.lane);
             }
-          } else if (dragInfo.type === 'resize-top') newStartMins += deltaMins;
-          else if (dragInfo.type === 'resize-bottom') newEndMins += deltaMins;
+          } else if (dragInfo.type === 'resize-top') nS += deltaMins;
+          else if (dragInfo.type === 'resize-bottom') nE += deltaMins;
 
-          const limitStart = timeToMins('09:00'),
-            limitEnd = timeToMins('24:00');
-          if (newStartMins < limitStart) newStartMins = limitStart;
-          if (newEndMins > limitEnd) newEndMins = limitEnd;
-          const startStr = minsToTime(newStartMins),
-            endStr = minsToTime(newEndMins);
-
+          const sStr = minsToTime(Math.max(timeToMins('09:00'), nS));
+          const eStr = minsToTime(Math.min(timeToMins('24:00'), nE));
           return {
             ...s,
-            startTime: startStr,
-            endTime: endStr,
-            totalHours: calcTotalHours(startStr, endStr, s.breakHours),
-            day: newDay,
-            lane: newLane,
+            startTime: sStr,
+            endTime: eStr,
+            totalHours: calcTotalHours(sStr, eStr, s.breakHours),
+            day: nD,
+            lane: nL,
           };
         })
       );
@@ -331,21 +264,15 @@ function App() {
     async (e) => {
       if (!dragInfo) return;
       e.target.releasePointerCapture(e.pointerId);
-      const updatedShift = shifts.find((s) => s.id === dragInfo.id);
-      if (updatedShift) {
-        try {
-          await updateDoc(doc(db, 'shifts', updatedShift.id), {
-            startTime: updatedShift.startTime,
-            endTime: updatedShift.endTime,
-            day: updatedShift.day,
-            lane: updatedShift.lane,
-            totalHours: updatedShift.totalHours,
-          });
-        } catch (error) {
-          console.error(error);
-          if (error.code === 'not-found') window.location.reload();
-        }
-      }
+      const updated = shifts.find((s) => s.id === dragInfo.id);
+      if (updated)
+        await updateDoc(doc(db, 'shifts', updated.id), {
+          startTime: updated.startTime,
+          endTime: updated.endTime,
+          day: updated.day,
+          lane: updated.lane,
+          totalHours: updated.totalHours,
+        });
       setDragInfo(null);
     },
     [dragInfo, shifts]
@@ -360,50 +287,25 @@ function App() {
     };
   }, [handlePointerMove, handlePointerUp]);
 
-  const handleUpdateShift = async (e) => {
-    e.preventDefault();
-    if (isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const finalTotalHours = calcTotalHours(
-        editingShift.startTime,
-        editingShift.endTime,
-        editingShift.breakHours
-      );
-      const shiftToSave = { ...editingShift, totalHours: finalTotalHours };
-      await updateDoc(doc(db, 'shifts', editingShift.id), shiftToSave);
-      setShifts(
-        shifts.map((s) => (s.id === editingShift.id ? shiftToSave : s))
-      );
-      setEditingShift(null);
-    } catch (error) {
-      console.error(error);
-    }
-    setIsProcessing(false);
-  };
-
   const dashboardData = staffs.map((staff) => {
-    const staffShifts = shifts.filter((s) => s.staffName === staff.name);
-    const totalHours =
-      Math.floor(staffShifts.reduce((acc, s) => acc + s.totalHours, 0) * 100) /
-      100;
+    const total = shifts
+      .filter((s) => s.staffName === staff.name)
+      .reduce((acc, s) => acc + s.totalHours, 0);
     return {
       ...staff,
-      currentHours: totalHours,
-      remaining: Math.floor((staff.target - totalHours) * 100) / 100,
-      progressPercent: Math.min((totalHours / staff.target) * 100, 100),
+      currentHours: Math.floor(total * 100) / 100,
+      remaining: Math.floor((staff.target - total) * 100) / 100,
+      progress: Math.min((total / staff.target) * 100, 100),
     };
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm px-6 py-4 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-slate-100">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-10 selection:bg-blue-200">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-6">
           <div className="flex flex-col">
-            <h1 className="text-xl font-extrabold tracking-tight text-slate-800">
-              Shift Builder
-            </h1>
-            <span className="text-sm font-bold text-blue-600">
+            <h1 className="text-xl font-black tracking-tight">Shift Builder</h1>
+            <span className="text-[10px] font-bold text-blue-600 uppercase">
               {getWeekDisplayVerbose(weekId)}
             </span>
           </div>
@@ -411,126 +313,149 @@ function App() {
             type="week"
             value={weekId}
             onChange={(e) => setWeekId(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-bold cursor-pointer"
+            className="bg-slate-100 border-none rounded-lg px-3 py-2 text-xs font-bold cursor-pointer"
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCopyModal(true)}
-            className="text-xs bg-indigo-50 text-indigo-700 font-bold px-4 py-2 rounded-full hover:bg-indigo-100 transition border border-indigo-100"
-          >
-            📋 コピー
-          </button>
-          <button
-            onClick={() => setShowStaffModal(true)}
-            className="text-xs bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-full hover:bg-slate-200 transition border border-slate-200"
-          >
-            ⚙️ スタッフ管理
-          </button>
-          <button
-            onClick={async () => {
-              if (window.confirm('全削除しますか？')) {
-                const b = writeBatch(db);
-                shifts.forEach((s) => b.delete(doc(db, 'shifts', s.id)));
-                await b.commit();
-                setShifts([]);
-              }
-            }}
-            className="text-xs bg-rose-50 text-rose-700 font-bold px-4 py-2 rounded-full hover:bg-rose-100 transition border border-rose-100"
-          >
-            🗑️ クリア
-          </button>
-        </div>
+        <div className="flex items-center gap-4">
+          {/* Staff selection bar */}
+          <div className="flex items-center gap-1.5 border-r border-slate-200 pr-4 mr-2">
+            {staffs.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSelectedStaff(s.name)}
+                style={{ backgroundColor: s.color }}
+                className={`px-4 py-1.5 rounded-full text-[11px] font-black transition-all ${
+                  selectedStaff === s.name
+                    ? 'ring-2 ring-slate-800 shadow-md scale-105'
+                    : 'opacity-40 hover:opacity-100'
+                }`}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2 flex-1 xl:justify-end">
-          {staffs.map((s) => (
+          {/* ⚙️ Action Menu Dropdown */}
+          <div className="relative" ref={menuRef}>
             <button
-              key={s.id}
-              onClick={() => setSelectedStaff(s.name)}
-              style={{ backgroundColor: s.color }}
-              className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all ${
-                selectedStaff === s.name
-                  ? 'ring-2 ring-slate-800 shadow-md scale-105'
-                  : 'opacity-60 hover:opacity-100'
-              }`}
+              onClick={() => setShowMenu(!showMenu)}
+              className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full hover:bg-slate-200 transition-colors text-xl"
             >
-              {s.name}
+              ⚙️
             </button>
-          ))}
+            {showMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                <button
+                  onClick={() => {
+                    setShowCopyModal(true);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
+                >
+                  📋 過去からコピー
+                </button>
+                <button
+                  onClick={() => {
+                    setShowStaffModal(true);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
+                >
+                  👥 スタッフ管理
+                </button>
+                <div className="h-px bg-slate-100 my-1"></div>
+                <button
+                  onClick={async () => {
+                    if (window.confirm('この週の全シフトを削除しますか？')) {
+                      setShowMenu(false);
+                      const b = writeBatch(db);
+                      shifts.forEach((s) => b.delete(doc(db, 'shifts', s.id)));
+                      await b.commit();
+                      setShifts([]);
+                    }
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
+                >
+                  🗑️ 全データをクリア
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* --- Dashboard & Table (省略せず維持) --- */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 mt-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+      <div className="max-w-[1600px] mx-auto px-4 mt-6">
+        {/* Dashboard */}
+        <div className="grid grid-cols-7 gap-3 mb-6">
           {dashboardData.map((d) => (
             <div
               key={d.id}
-              className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm"
+              className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm"
             >
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-bold text-slate-600">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-black text-slate-500 truncate mr-1">
                   {d.name}
                 </span>
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                  className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold ${
                     d.remaining < 0
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-green-100 text-green-700'
+                      ? 'bg-red-100 text-red-600'
+                      : 'bg-green-100 text-green-600'
                   }`}
                 >
                   {d.remaining < 0 ? 'OVER' : 'OK'}
                 </span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-black text-slate-800">
+                <span className="text-lg font-black text-slate-800">
                   {d.currentHours}
                 </span>
-                <span className="text-xs text-slate-400 font-medium">
+                <span className="text-[10px] text-slate-400 font-bold">
                   / {d.target}h
                 </span>
               </div>
-              <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+              <div className="w-full bg-slate-100 h-1 rounded-full mt-2 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${
+                  className={`h-full transition-all duration-700 ${
                     d.remaining < 0 ? 'bg-red-500' : 'bg-slate-800'
                   }`}
-                  style={{ width: `${d.progressPercent}%` }}
+                  style={{ width: `${d.progress}%` }}
                 ></div>
               </div>
             </div>
           ))}
         </div>
 
+        {/* Table */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden relative">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse table-fixed min-w-[1400px] select-none">
               <thead>
-                <tr>
-                  <th className="w-16 border-b border-r-2 border-slate-300 bg-slate-50 sticky left-0 z-30 p-2 text-xs font-semibold text-slate-500">
+                <tr className="bg-slate-50/50">
+                  <th className="w-16 border-b border-r-2 border-slate-200 sticky left-0 z-30 p-2 text-[10px] font-bold text-slate-400 bg-white uppercase">
                     Time
                   </th>
                   {DAYS.map((day) => (
                     <th
                       key={day}
                       colSpan={4}
-                      className="border-b border-r-2 border-slate-400 bg-slate-50 p-3 text-center font-bold text-slate-700 tracking-widest"
+                      className="border-b border-r-2 border-slate-200 p-3 text-center text-xs font-black text-slate-600 tracking-widest uppercase"
                     >
                       {day}
                     </th>
                   ))}
                 </tr>
-                <tr>
-                  <th className="border-b border-r-2 border-slate-300 bg-slate-50 sticky left-0 z-30 h-6"></th>
+                <tr className="bg-slate-50/30">
+                  <th className="border-b border-r-2 border-slate-200 sticky left-0 z-30 h-6 bg-white"></th>
                   {DAYS.map((day) =>
                     LANES.map((lane) => (
                       <th
                         key={`${day}-${lane}`}
-                        className={`border-b border-slate-100 bg-slate-50/50 text-[9px] font-semibold text-slate-400 w-12 text-center ${
+                        className={`border-b border-slate-100 text-[8px] font-black text-slate-300 w-12 text-center ${
                           lane === 4
-                            ? 'border-r-2 border-r-slate-400'
-                            : 'border-r border-r-slate-100'
+                            ? 'border-r-2 border-r-slate-200'
+                            : 'border-r border-r-slate-50'
                         }`}
                       >
                         L{lane}
@@ -541,13 +466,13 @@ function App() {
               </thead>
               <tbody>
                 {TIMES.map((time) => (
-                  <tr key={time} className="h-9 group">
-                    <td className="border-b border-r-2 border-slate-300 text-center text-[11px] font-medium text-slate-500 bg-white sticky left-0 z-20 group-hover:bg-slate-50">
+                  <tr key={time} className="h-10 group">
+                    <td className="border-b border-r-2 border-slate-200 text-center text-[10px] font-black text-slate-400 bg-white sticky left-0 z-20 group-hover:bg-slate-50 transition-colors">
                       <span
                         className={
                           time.endsWith(':00')
                             ? 'text-slate-800'
-                            : 'text-slate-400'
+                            : 'text-slate-300'
                         }
                       >
                         {time.endsWith(':00') ? time : time.split(':')[1]}
@@ -555,12 +480,13 @@ function App() {
                     </td>
                     {DAYS.map((day) =>
                       LANES.map((lane) => {
-                        const cellShifts = shifts.filter((s) => {
-                          if (s.day !== day || s.lane !== lane) return false;
-                          const sM = timeToMins(s.startTime);
-                          const cM = timeToMins(time);
-                          return sM >= cM && sM < cM + 30;
-                        });
+                        const cellShifts = shifts.filter(
+                          (s) =>
+                            s.day === day &&
+                            s.lane === lane &&
+                            timeToMins(s.startTime) >= timeToMins(time) &&
+                            timeToMins(s.startTime) < timeToMins(time) + 30
+                        );
                         return (
                           <td
                             key={`${day}-${time}-${lane}`}
@@ -569,74 +495,56 @@ function App() {
                             className={`border-b ${
                               time.endsWith(':30')
                                 ? 'border-slate-200'
-                                : 'border-slate-100 border-dashed'
+                                : 'border-slate-50 border-dashed'
                             } ${
                               lane === 4
-                                ? 'border-r-2 border-r-slate-400'
-                                : 'border-r border-r-slate-100'
-                            } p-0 hover:bg-blue-50/50 cursor-crosshair relative`}
+                                ? 'border-r-2 border-r-slate-200'
+                                : 'border-r border-r-slate-50'
+                            } p-0 hover:bg-blue-50/30 cursor-crosshair relative`}
                             onClick={() => handleAddShift(day, time, lane)}
                           >
-                            {cellShifts.map((shift) => {
-                              const isDraggingThis = dragInfo?.id === shift.id;
-                              const hPx =
-                                ((timeToMins(shift.endTime) -
-                                  timeToMins(shift.startTime)) /
-                                  30) *
-                                ROW_HEIGHT;
-                              return (
-                                <div
-                                  key={shift.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingShift(shift);
-                                  }}
-                                  onPointerDown={(e) =>
-                                    handlePointerDown(e, shift, 'move')
-                                  }
-                                  className={`absolute inset-x-0.5 rounded-md p-1.5 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/5 z-10 cursor-grab ${
-                                    isDraggingThis
-                                      ? 'z-50 opacity-90 scale-[1.02] shadow-xl'
-                                      : ''
-                                  }`}
-                                  style={{
-                                    top: `${
-                                      ((timeToMins(shift.startTime) -
-                                        timeToMins(time)) /
-                                        30) *
-                                        ROW_HEIGHT +
-                                      1
-                                    }px`,
-                                    height: `${hPx - 2}px`,
-                                    backgroundColor: shift.color,
-                                    touchAction: 'none',
-                                  }}
-                                >
-                                  <div
-                                    className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-20"
-                                    onPointerDown={(e) =>
-                                      handlePointerDown(e, shift, 'resize-top')
-                                    }
-                                  />
-                                  <span className="font-bold text-[10px] text-slate-800 truncate w-full">
-                                    {shift.staffName}
-                                  </span>
-                                  <span className="text-[9px] text-slate-700/80 whitespace-nowrap">
-                                    {shift.startTime}-{shift.endTime}
-                                  </span>
-                                  <div
-                                    className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize z-20"
-                                    onPointerDown={(e) =>
-                                      handlePointerDown(
-                                        e,
-                                        shift,
-                                        'resize-bottom'
-                                      )
-                                    }
-                                  />
-                                </div>
-                              );
-                            })}
+                            {cellShifts.map((shift) => (
+                              <div
+                                key={shift.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingShift(shift);
+                                }}
+                                onPointerDown={(e) =>
+                                  handlePointerDown(e, shift, 'move')
+                                }
+                                className={`absolute inset-x-0.5 rounded-lg p-2 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/5 z-10 cursor-grab ${
+                                  dragInfo?.id === shift.id
+                                    ? 'z-50 opacity-90 scale-[1.02] shadow-xl rotate-1'
+                                    : 'hover:ring-black/20 hover:shadow-md transition-shadow'
+                                }`}
+                                style={{
+                                  top: `${
+                                    ((timeToMins(shift.startTime) -
+                                      timeToMins(time)) /
+                                      30) *
+                                      ROW_HEIGHT +
+                                    1
+                                  }px`,
+                                  height: `${
+                                    ((timeToMins(shift.endTime) -
+                                      timeToMins(shift.startTime)) /
+                                      30) *
+                                      ROW_HEIGHT -
+                                    2
+                                  }px`,
+                                  backgroundColor: shift.color,
+                                  touchAction: 'none',
+                                }}
+                              >
+                                <span className="font-black text-[10px] text-slate-900 truncate w-full pointer-events-none leading-none">
+                                  {shift.staffName}
+                                </span>
+                                <span className="text-[8px] font-bold text-slate-800/60 pointer-events-none mt-1">
+                                  {shift.startTime}-{shift.endTime}
+                                </span>
+                              </div>
+                            ))}
                           </td>
                         );
                       })
@@ -649,61 +557,59 @@ function App() {
         </div>
       </div>
 
-      {/* --- ⚙️ スタッフ管理モーダル --- */}
+      {/* --- Modals --- */}
       {showStaffModal && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
           onClick={() => setShowStaffModal(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold">スタッフ設定</h2>
+            <div className="p-6 border-b flex justify-between items-center">
+              <h2 className="text-xl font-black">Staff Settings</h2>
               <button
                 onClick={() => setShowStaffModal(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold"
               >
                 ✕
               </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {staffs.map((s) => (
                 <div
                   key={s.id}
-                  className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl group"
+                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl group transition-all hover:bg-slate-100"
                 >
                   <div
-                    className="w-8 h-8 rounded-full shadow-inner"
+                    className="w-10 h-10 rounded-full shadow-sm border-2 border-white"
                     style={{ backgroundColor: s.color }}
                   ></div>
                   <div className="flex-1">
-                    <div className="font-bold text-sm">{s.name}</div>
-                    <div className="text-[10px] text-slate-400">
-                      目標: {s.target}h
+                    <div className="font-black text-sm">{s.name}</div>
+                    <div className="text-[10px] font-bold text-slate-400">
+                      Target: {s.target}h
                     </div>
                   </div>
                   <button
                     onClick={() => handleDeleteStaff(s.id, s.name)}
-                    className="text-xs text-rose-400 opacity-0 group-hover:opacity-100 hover:text-rose-600 transition-all font-bold"
+                    className="text-[10px] bg-rose-100 text-rose-600 px-3 py-1.5 rounded-full font-bold opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     削除
                   </button>
                 </div>
               ))}
             </div>
-
             <form
               onSubmit={handleAddStaff}
-              className="p-6 bg-slate-50 border-t border-slate-100 space-y-3"
+              className="p-6 bg-white border-t space-y-4"
             >
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="text"
-                  placeholder="名前"
-                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="NAME"
+                  className="px-4 py-3 rounded-2xl bg-slate-100 border-none font-bold text-sm w-full"
                   value={newStaff.name}
                   onChange={(e) =>
                     setNewStaff({
@@ -715,8 +621,8 @@ function App() {
                 />
                 <input
                   type="number"
-                  placeholder="目標時間"
-                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none"
+                  placeholder="HOURS"
+                  className="px-4 py-3 rounded-2xl bg-slate-100 border-none font-bold text-sm w-full"
                   value={newStaff.target}
                   onChange={(e) =>
                     setNewStaff({ ...newStaff, target: Number(e.target.value) })
@@ -724,13 +630,10 @@ function App() {
                   required
                 />
               </div>
-              <div className="flex items-center gap-3">
-                <label className="text-xs font-bold text-slate-500">
-                  ラベル色:
-                </label>
+              <div className="flex items-center gap-4">
                 <input
                   type="color"
-                  className="w-10 h-8 rounded cursor-pointer"
+                  className="w-12 h-10 rounded-xl cursor-pointer bg-transparent border-none"
                   value={newStaff.color}
                   onChange={(e) =>
                     setNewStaff({ ...newStaff, color: e.target.value })
@@ -738,10 +641,9 @@ function App() {
                 />
                 <button
                   type="submit"
-                  disabled={isProcessing}
-                  className="flex-1 bg-slate-900 text-white rounded-lg py-2 text-sm font-bold hover:bg-slate-800 transition-all"
+                  className="flex-1 bg-slate-900 text-white rounded-2xl py-3 font-black text-sm active:scale-95 transition-all shadow-lg"
                 >
-                  スタッフを追加
+                  ADD STAFF
                 </button>
               </div>
             </form>
@@ -749,61 +651,33 @@ function App() {
         </div>
       )}
 
-      {/* --- コピーモーダル & 編集モーダル (以前と同じ) --- */}
-      {showCopyModal && (
-        <div
-          className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50"
-          onClick={() => setShowCopyModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 w-full max-w-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold mb-4">過去からコピー</h2>
-            <select
-              className="w-full border p-2 rounded-lg mb-4"
-              onChange={(e) => setSelectedCopyWeek(e.target.value)}
-            >
-              <option value="">週を選択...</option>
-              {availableWeeks.map((w) => (
-                <option key={w} value={w}>
-                  {w}
-                </option>
-              ))}
-            </select>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="px-4 py-2 text-slate-600"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={executeCopy}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold"
-              >
-                実行
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {editingShift && (
         <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
           onClick={() => setEditingShift(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <form onSubmit={handleUpdateShift} className="p-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+            <h2 className="text-xl font-black mb-6 text-center">
+              {editingShift.staffName}
+            </h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleUpdateShift(e);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 ml-2">
+                    START
+                  </label>
                   <input
                     type="time"
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full bg-slate-100 border-none rounded-2xl px-4 py-3 font-bold"
                     value={editingShift.startTime}
                     onChange={(e) =>
                       setEditingShift({
@@ -812,9 +686,14 @@ function App() {
                       })
                     }
                   />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 ml-2">
+                    END
+                  </label>
                   <input
                     type="time"
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full bg-slate-100 border-none rounded-2xl px-4 py-3 font-bold"
                     value={editingShift.endTime}
                     onChange={(e) =>
                       setEditingShift({
@@ -824,8 +703,13 @@ function App() {
                     }
                   />
                 </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 ml-2">
+                  BREAK HOURS
+                </label>
                 <select
-                  className="w-full border rounded-lg px-3 py-2"
+                  className="w-full bg-slate-100 border-none rounded-2xl px-4 py-3 font-bold appearance-none"
                   value={editingShift.breakHours}
                   onChange={(e) =>
                     setEditingShift({
@@ -834,33 +718,74 @@ function App() {
                     })
                   }
                 >
-                  <option value="0">休憩なし</option>
+                  <option value="0">なし</option>
                   <option value="0.5">30分</option>
                   <option value="1">1時間</option>
+                  <option value="1.5">1.5時間</option>
                 </select>
               </div>
-              <div className="flex justify-between items-center mt-8">
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm('削除しますか？')) {
+                    if (window.confirm('このシフトを削除しますか？')) {
                       await deleteDoc(doc(db, 'shifts', editingShift.id));
                       setShifts(shifts.filter((s) => s.id !== editingShift.id));
                       setEditingShift(null);
                     }
                   }}
-                  className="text-red-500 font-bold"
+                  className="flex-1 bg-rose-50 text-rose-600 font-bold py-3 rounded-2xl"
                 >
                   削除
                 </button>
                 <button
                   type="submit"
-                  className="bg-slate-900 text-white px-6 py-2 rounded-lg font-bold"
+                  className="flex-[2] bg-slate-900 text-white font-black py-3 rounded-2xl shadow-lg active:scale-95 transition-all"
                 >
-                  保存
+                  保存する
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showCopyModal && (
+        <div
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          onClick={() => setShowCopyModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-black mb-6">過去からコピー</h2>
+            <p className="text-xs font-bold text-slate-500 mb-4">
+              コピー元の週IDを入力してください（例: 2026-W10）
+            </p>
+            <input
+              type="text"
+              placeholder="2026-W10"
+              className="w-full bg-slate-100 border-none rounded-2xl px-4 py-3 font-bold mb-6"
+              onChange={(e) => setSelectedCopyWeek(e.target.value)}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCopyModal(false)}
+                className="flex-1 py-3 font-bold text-slate-500"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={async () => {
+                  await executeCopy();
+                  setShowCopyModal(false);
+                }}
+                className="flex-[2] bg-indigo-600 text-white font-black py-3 rounded-2xl shadow-lg active:scale-95 transition-all"
+              >
+                コピーを実行
+              </button>
+            </div>
           </div>
         </div>
       )}
