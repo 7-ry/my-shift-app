@@ -278,10 +278,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
-      {/* --- 🛠️ ヘッダー修正ポイント: flex-wrap とレスポンシブ配置 ---
-       */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        {/* 左側: タイトルと日付表示 */}
         <div className="flex items-center gap-4 md:gap-6 min-w-fit">
           <div className="flex flex-col">
             <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-tight">
@@ -299,16 +296,31 @@ function App() {
           />
         </div>
 
-        {/* 右側: スタッフ選択と設定メニュー (コンテナが伸縮するように) */}
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          {/* スタッフ選択リスト: 溢れる場合は横スクロール */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mask-fade-right max-w-[calc(100vw-180px)] md:max-w-none px-2 border-r border-slate-100 mr-2 pr-2">
+          {/* 📱 スマホ用スタッフプルダウン (画面が md 未満のときに表示) */}
+          <div className="md:hidden flex-1 max-w-[140px]">
+            <select
+              value={selectedStaff}
+              onChange={(e) => setSelectedStaff(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              {staffs.map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 💻 PC用スタッフバッジリスト (画面が md 以上のときに表示) */}
+          {/* py-2 を追加して上下の切り欠けを防止 */}
+          <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar px-2 border-r border-slate-100 mr-2 pr-2 py-2">
             {staffs.map((s) => (
               <button
                 key={s.id}
                 onClick={() => setSelectedStaff(s.name)}
                 style={{ backgroundColor: s.color }}
-                className={`flex-shrink-0 px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-[11px] font-bold transition-all ${
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-bold transition-all ${
                   selectedStaff === s.name
                     ? 'ring-2 ring-slate-800 shadow-md scale-105'
                     : 'opacity-60 hover:opacity-100'
@@ -319,7 +331,6 @@ function App() {
             ))}
           </div>
 
-          {/* ⚙️ アクションメニュー */}
           <div className="relative flex-shrink-0" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -328,7 +339,7 @@ function App() {
               ⚙️
             </button>
             {showMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden">
                 <button
                   onClick={() => {
                     fetchAvailableWeeks();
@@ -369,7 +380,6 @@ function App() {
         </div>
       </header>
 
-      {/* --- ✨ ダッシュボード (Change-Staff時点の完璧なUIを維持) --- */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
           {dashboardData.map((d) => (
@@ -411,7 +421,6 @@ function App() {
           ))}
         </div>
 
-        {/* --- 📅 テーブルエリア --- */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden relative">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse table-fixed min-w-[1400px] select-none">
@@ -551,7 +560,7 @@ function App() {
         </div>
       </div>
 
-      {/* --- モーダル類 (Staff, Copy, Editing) --- */}
+      {/* モーダル類 (以前と同じ) */}
       {showStaffModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
@@ -582,7 +591,7 @@ function App() {
                   ></div>
                   <div className="flex-1">
                     <div className="font-bold text-sm">{s.name}</div>
-                    <div className="text-[10px] text-slate-400 font-bold tracking-tight">
+                    <div className="text-[10px] font-bold text-slate-400 tracking-tight">
                       目標: {s.target}h
                     </div>
                   </div>
@@ -668,7 +677,7 @@ function App() {
             className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold mb-6 text-center">
+            <h2 className="text-xl font-black mb-6 text-center">
               過去からコピー
             </h2>
             <p className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest text-center">
