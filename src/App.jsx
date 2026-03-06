@@ -23,7 +23,36 @@ for (let h = 9; h <= 23; h++) {
 
 const ROW_HEIGHT = 36;
 
-// --- 🌟 ヘルパー関数 ---
+// --- 🌟 スプレッドシート描画用ヘルパー ---
+const getColumnLetter = (colIndex) => {
+  let letter = '';
+  while (colIndex > 0) {
+    let temp = (colIndex - 1) % 26;
+    letter = String.fromCharCode(temp + 65) + letter;
+    colIndex = (colIndex - temp - 1) / 26;
+  }
+  return letter;
+};
+
+const getSheetCell = (day, time, lane) => {
+  const dayIdx = DAYS.indexOf(day);
+  const baseCol = 2 + dayIdx * 5; // MON=2(B), TUE=7(G)...
+  const colLetter = getColumnLetter(baseCol + (lane - 1));
+
+  const [h, m] = time.split(':').map(Number);
+  const rowNum = (h - 9) * 2 + (m >= 30 ? 1 : 0) + 5; // 9:00=row5
+  return `${colLetter}${rowNum}`;
+};
+
+const formatTime12 = (t) => {
+  if (!t) return '';
+  let [h, m] = t.split(':').map(Number);
+  const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  const displayM = m === 0 ? '' : ':' + m.toString().padStart(2, '0');
+  return `${displayH}${displayM}`;
+};
+
+// --- 🌟 既存ヘルパー関数 ---
 const timeToMins = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
@@ -53,9 +82,9 @@ const getWeekDisplayVerbose = (weekId) => {
   else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
   const end = new Date(ISOweekStart);
   end.setDate(ISOweekStart.getDate() + 6);
-  return `${ISOweekStart.getMonth() + 1}月${ISOweekStart.getDate()}日〜${
+  return `${ISOweekStart.getMonth() + 1}/${ISOweekStart.getDate()}〜${
     end.getMonth() + 1
-  }月${end.getDate()}日`;
+  }/${end.getDate()}`;
 };
 
 const getCurrentWeekId = () => {
@@ -79,15 +108,13 @@ function App() {
   const [weekId, setWeekId] = useState(
     () => localStorage.getItem('lastViewedWeek') || getCurrentWeekId()
   );
-
   const [showMenu, setShowMenu] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [availableWeeks, setAvailableWeeks] = useState([]);
   const [selectedCopyWeek, setSelectedCopyWeek] = useState('');
   const menuRef = useRef(null);
-  const hasInitialized = useRef(false); // 重複登録防止用
-
+  const hasInitialized = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [newStaff, setNewStaff] = useState({
     name: '',
@@ -104,56 +131,11 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // --- App.jsx 内に追加する一時的なバックアップロジック ---
-
-  const exportFirestoreData = async () => {
-    try {
-      const backupData = {
-        shifts: [],
-        staffs: [],
-      };
-
-      // shifts コレクションの取得
-      const shiftsSnapshot = await getDocs(collection(db, 'shifts'));
-      shiftsSnapshot.forEach((doc) => {
-        backupData.shifts.push({ id: doc.id, ...doc.data() });
-      });
-
-      // staffs コレクションの取得
-      const staffsSnapshot = await getDocs(collection(db, 'staffs'));
-      staffsSnapshot.forEach((doc) => {
-        backupData.staffs.push({ id: doc.id, ...doc.data() });
-      });
-
-      // JSONファイルとしてダウンロード
-      const blob = new Blob([JSON.stringify(backupData, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `shift_builder_backup_${
-        new Date().toISOString().split('T')[0]
-      }.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      alert('Firebaseデータのバックアップが完了しました！');
-    } catch (error) {
-      console.error('Backup failed:', error);
-      alert('バックアップに失敗しました。詳細はコンソールを確認してください。');
-    }
-  };
-
-  // --- 📦 データ取得 ---
   const fetchStaffs = useCallback(async () => {
     const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
     const snapshot = await getDocs(q);
     const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    // 初期データの登録 (重複防止)
     if (list.length === 0 && !hasInitialized.current) {
       hasInitialized.current = true;
       const initial = [
@@ -189,25 +171,140 @@ function App() {
     fetchShifts();
   }, [weekId]);
 
-  // --- 👥 スタッフ管理ロジック ---
+  // --- 🚀 GAS同期ロジック ---
+  const handleSyncToGAS = async () => {
+    if (isProcessing) return;
+    const gasUrl = import.meta.env.VITE_GAS_URL;
+
+    // デバッグ用: URLが正しく読み込まれているか確認
+    console.log('Target GAS URL:', gasUrl);
+
+    if (!gasUrl || gasUrl.includes('YOUR_GAS_DEPLOY_ID')) {
+      alert(
+        '.envファイルの VITE_GAS_URL を正しいIDに書き換えて、npm run dev を再起動してください。'
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `${getWeekDisplayVerbose(
+          weekId
+        )} のデータをスプレッドシートに反映しますか？`
+      )
+    )
+      return;
+
+    setIsProcessing(true);
+    setShowMenu(false);
+
+    try {
+      // 1. SCHEDULE用データ作成
+      // --- App.jsx 内の修正箇所 ---
+      const scheduleCommands = shifts.map((s) => {
+        const startStr = formatTime12(s.startTime);
+        const endStr = formatTime12(s.endTime);
+        const timeLabel =
+          (startStr + '-' + endStr).length >= 9
+            ? `${startStr}-\n${endStr}`
+            : `${startStr}-${endStr}`;
+        const breakLabel =
+          s.breakHours === 0.5
+            ? '\n30mins'
+            : s.breakHours >= 1
+            ? `\n${s.breakHours}HR`
+            : '';
+
+        // 終了行を -1 するロジック
+        const [h, m] = s.endTime.split(':').map(Number);
+        const endRowNum = (h - 9) * 2 + (m >= 30 ? 1 : 0) + 5 - 1; // 10:00終了なら row7ではなくrow6まで
+        const dayIdx = DAYS.indexOf(s.day);
+        const baseCol = 2 + dayIdx * 5;
+        const colLetter = getColumnLetter(baseCol + (s.lane - 1));
+        const endCell = `${colLetter}${endRowNum}`;
+
+        return {
+          cell: getSheetCell(s.day, s.startTime, s.lane),
+          endCell: endCell, // 修正後の終了セル
+          value: `${s.staffName}\n${timeLabel}${breakLabel}`,
+          color: s.color,
+          // ...残りは同じ
+        };
+      });
+
+      // 2. DASHBOARD用データの計算（この関数内で計算するように変更し ReferenceError を防止）
+      const currentDashboardData = staffs.map((staff) => {
+        const total = shifts
+          .filter((s) => s.staffName === staff.name)
+          .reduce((acc, s) => acc + s.totalHours, 0);
+        const totalFixed = Math.floor(total * 100) / 100;
+        return {
+          name: staff.name,
+          currentHours: totalFixed,
+          target: staff.target,
+          remaining: Math.floor((staff.target - totalFixed) * 100) / 100,
+        };
+      });
+
+      const dashboardRows = currentDashboardData.map((d) => [
+        d.name,
+        d.currentHours,
+        d.target,
+        '', // SPARKLINE用（GAS側で処理）
+        d.remaining,
+        d.remaining < 0 ? '⚠️ OVER' : 'OK',
+      ]);
+
+      // 3. 全データのパッケージ化 (ここで payload を定義)
+      const payload = {
+        weekId,
+        weekLabel: getWeekDisplayVerbose(weekId),
+        scheduleCommands,
+        dashboardRows,
+        shiftDataRows: shifts.map((s) => [
+          s.day,
+          s.staffName,
+          s.startTime,
+          s.endTime,
+          s.lane,
+          s.breakHours,
+          s.totalHours,
+        ]),
+      };
+
+      // 🚀 ここで定義した後にログを出す
+      console.log('Sending Payload to GAS:', payload);
+
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      alert('同期命令を送信しました。スプレッドシートを確認してください。');
+    } catch (error) {
+      console.error('Sync Error:', error);
+      alert('同期に失敗しました。詳細はコンソールを確認してください。');
+    }
+    setIsProcessing(false);
+  };
+
   const handleMoveStaff = async (index, direction) => {
     if (isProcessing) return;
     const newStaffs = [...staffs];
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= newStaffs.length) return;
-
     setIsProcessing(true);
     [newStaffs[index], newStaffs[targetIndex]] = [
       newStaffs[targetIndex],
       newStaffs[index],
     ];
-
     const batch = writeBatch(db);
     newStaffs.forEach((s, i) => {
       batch.update(doc(db, 'staffs', s.id), { order: i });
       s.order = i;
     });
-
     try {
       await batch.commit();
       setStaffs(newStaffs);
@@ -217,7 +314,6 @@ function App() {
     setIsProcessing(false);
   };
 
-  // --- 📅 シフト操作 (保存/削除/ドラッグリサイズ) ---
   const handleUpdateShift = async (e) => {
     if (e) e.preventDefault();
     if (!editingShift || isProcessing) return;
@@ -281,7 +377,6 @@ function App() {
       const targetTd = document
         .elementsFromPoint(e.clientX, e.clientY)
         .find((el) => el.tagName === 'TD' && el.dataset.day);
-
       setShifts((prev) =>
         prev.map((s) => {
           if (s.id !== dragInfo.id) return s;
@@ -289,7 +384,6 @@ function App() {
             nE = dragInfo.initEndMins,
             nD = s.day,
             nL = s.lane;
-
           if (dragInfo.type === 'move') {
             nS += deltaMins;
             nE += deltaMins;
@@ -302,13 +396,10 @@ function App() {
           } else if (dragInfo.type === 'resize-bottom') {
             nE += deltaMins;
           }
-
-          // 時間の境界制限
           const limitStart = timeToMins('09:00');
           const limitEnd = timeToMins('24:00');
           nS = Math.max(limitStart, Math.min(nS, nE - 15));
           nE = Math.min(limitEnd, Math.max(nE, nS + 15));
-
           const sStr = minsToTime(nS);
           const eStr = minsToTime(nE);
           return {
@@ -468,7 +559,8 @@ function App() {
                     : 'opacity-60 hover:opacity-100'
                 }`}
               >
-                {s.name}
+                {' '}
+                {s.name}{' '}
               </button>
             ))}
           </div>
@@ -482,6 +574,13 @@ function App() {
             </button>
             {showMenu && (
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden">
+                <button
+                  onClick={handleSyncToGAS}
+                  className="w-full text-left px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-3"
+                >
+                  🔄 スプレッドシートへ同期
+                </button>
+                <div className="h-px bg-slate-100 my-1"></div>
                 <button
                   onClick={() => {
                     fetchAvailableWeeks();
@@ -516,14 +615,6 @@ function App() {
                 >
                   🗑️ クリア
                 </button>
-                {/* // --- UI部分にボタンを配置（⚙️メニューの中など） --- */}
-                <button
-                  onClick={exportFirestoreData}
-                  className="px-4 py-2 bg-gray-800 text-white rounded"
-                >
-                  📥 Firebaseバックアップ
-                </button>
-                ;
               </div>
             )}
           </div>
@@ -635,6 +726,7 @@ function App() {
                             key={`${day}-${time}-${lane}`}
                             data-day={day}
                             data-lane={lane}
+                            onClick={() => handleAddShift(day, time, lane)}
                             className={`border-b ${
                               time.endsWith(':30')
                                 ? 'border-slate-200'
@@ -644,7 +736,6 @@ function App() {
                                 ? 'border-r-2 border-r-slate-400'
                                 : 'border-r border-r-slate-100'
                             } p-0 hover:bg-blue-50/50 cursor-crosshair relative`}
-                            onClick={() => handleAddShift(day, time, lane)}
                           >
                             {cellShifts.map((shift) => (
                               <div
@@ -680,7 +771,6 @@ function App() {
                                   touchAction: 'none',
                                 }}
                               >
-                                {/* 🌟 上ハンドル (リサイズ用) */}
                                 <div
                                   className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-20"
                                   onPointerDown={(e) =>
@@ -697,7 +787,6 @@ function App() {
                                 <span className="text-[9px] text-slate-700/80 pointer-events-none mt-1">
                                   {shift.startTime}-{shift.endTime}
                                 </span>
-                                {/* 🌟 下ハンドル (リサイズ用) */}
                                 <div
                                   className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize z-20"
                                   onPointerDown={(e) =>
@@ -722,7 +811,7 @@ function App() {
         </div>
       </div>
 
-      {/* モーダル: スタッフ設定 */}
+      {/* モーダル: スタッフ設定、コピー、編集 (省略せず維持) */}
       {showStaffModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
@@ -849,7 +938,6 @@ function App() {
         </div>
       )}
 
-      {/* モーダル: コピー */}
       {showCopyModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
@@ -894,7 +982,6 @@ function App() {
         </div>
       )}
 
-      {/* モーダル: 編集 */}
       {editingShift && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
@@ -963,6 +1050,15 @@ function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 処理中オーバーレイ */}
+      {isProcessing && (
+        <div className="fixed inset-0 bg-white/20 backdrop-blur-[1px] z-[100] flex items-center justify-center cursor-wait">
+          <div className="bg-slate-800 text-white px-6 py-3 rounded-full font-bold shadow-xl animate-pulse">
+            処理中...
           </div>
         </div>
       )}

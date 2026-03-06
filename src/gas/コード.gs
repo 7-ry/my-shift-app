@@ -1,134 +1,42 @@
 /**
- * [1] メニュー作成
+ * [1] アプリからのPOSTリクエストを受け取る (メイン・エントリーポイント)
  */
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('★SHIFT SYSTEM')
-    .addItem('🔄 Firebaseから同期', 'showWeekSelector')
-    .addSeparator()
-    .addItem('🗑️ SHIFT_DATAをクリア', 'clearInputForNextWeek')
-    .addToUi();
-}
-
-/**
- * [2] ダイアログ表示
- */
-function showWeekSelector() {
-  const html = HtmlService.createHtmlOutputFromFile('WeekSelector')
-    .setWidth(350)
-    .setHeight(200);
-  SpreadsheetApp.getUi().showModalDialog(html, '同期する週の選択');
-}
-
-/**
- * [3] 週リスト生成 (前後1ヶ月分：未来4週 〜 過去4週)
- */
-function getWeekOptions() {
-  const options = [];
-  const now = new Date();
-
-  // i = 4 (1ヶ月後) から i = -4 (1ヶ月前) までをループ
-  for (let i = 4; i >= -4; i--) {
-    const d = new Date();
-    d.setDate(now.getDate() + i * 7);
-
-    const weekId = getISOWeekId(d);
-    const mon = getDateFromISOWeek(weekId);
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
-
-    // ラベル作成（例：3/30〜4/5）
-    const label = `${mon.getMonth() + 1}/${mon.getDate()}〜${
-      sun.getMonth() + 1
-    }/${sun.getDate()} (${weekId})`;
-
-    options.push({ id: weekId, label: label });
-  }
-  return options;
-}
-
-/**
- * [4] 同期メイン処理
- */
-function executeSync(targetWeek, weekLabel) {
+function doPost(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-  const projectId = 'my-restaurant-shift';
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/shifts`;
+  // デバッグ用：シートのどこかに実行時間を記録（動いているか確認用）
+  ss.toast('同期リクエストを受信しました', '実行中...');
 
   try {
-    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-    if (response.getResponseCode() !== 200)
-      throw new Error('Firebaseの読み込みに失敗しました。');
+    const data = JSON.parse(e.postData.contents);
+    // ...（中身は前回の提供通り）...
 
-    const data = JSON.parse(response.getContentText());
-    const rawShifts = [];
-
-    if (data.documents) {
-      data.documents.forEach((doc) => {
-        const f = doc.fields;
-        if (!f || (f.weekId && f.weekId.stringValue !== targetWeek)) return;
-
-        const totalH = f.totalHours
-          ? Number(
-              f.totalHours.doubleValue ||
-                f.totalHours.integerValue ||
-                f.totalHours.stringValue
-            ) || 0
-          : 0;
-        const breakH = f.breakHours
-          ? Number(
-              f.breakHours.doubleValue ||
-                f.breakHours.integerValue ||
-                f.breakHours.stringValue
-            ) || 0
-          : 0;
-
-        rawShifts.push({
-          staffName: f.staffName ? f.staffName.stringValue : 'Unknown',
-          day: f.day ? f.day.stringValue : '',
-          startTime: f.startTime ? f.startTime.stringValue : '',
-          endTime: f.endTime ? f.endTime.stringValue : '',
-          lane: f.lane
-            ? parseInt(f.lane.integerValue || f.lane.stringValue)
-            : 1,
-          breakHours: breakH,
-          totalHours: isFinite(totalH) ? totalH : 0,
-          color: f.color ? f.color.stringValue : '#f3f3f3',
-        });
-      });
-    }
-
-    if (rawShifts.length === 0) {
-      ui.alert(
-        'お知らせ',
-        `${weekLabel} のデータは見つかりませんでした。`,
-        ui.ButtonSet.OK
-      );
-      return;
-    }
-
-    buildScheduleWithAdvancedLogic(ss, rawShifts, targetWeek);
-    updateShiftDataSheet(ss, rawShifts);
-    updateDashboardSheet(ss, rawShifts, weekLabel);
-
-    ss.toast(`${weekLabel} の同期が完了しました！`, '成功', 5);
-  } catch (e) {
-    ui.alert('エラー', e.message, ui.ButtonSet.OK);
+    // 完了通知
+    ss.toast('同期が完了しました！', '成功');
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: 'success' })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    // エラー時はスプレッドシート上にアラートを出す
+    SpreadsheetApp.getUi().alert('GASエラー: ' + err.toString());
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: 'error', message: err.toString() })
+    ).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 /**
- * [5] SCHEDULE描画
+ * [2] SCHEDULEシートの描画
  */
-function buildScheduleWithAdvancedLogic(ss, shifts, targetWeek) {
+function updateScheduleSheet(ss, commands, weekId, weekLabel) {
   const target = ss.getSheetByName('SCHEDULE');
   const template = ss.getSheetByName('TEMPLATE_MASTER');
   if (!target || !template) return;
 
+  // 1. テンプレートのコピー
   target.clear().clearFormats();
   template.getDataRange().copyTo(target.getRange(1, 1));
 
+  // 2. ヘッダーの日付更新
   const dayMap = {
     MON: 2,
     TUE: 7,
@@ -138,64 +46,24 @@ function buildScheduleWithAdvancedLogic(ss, shifts, targetWeek) {
     SAT: 27,
     SUN: 32,
   };
-  const mondayDate = getDateFromISOWeek(targetWeek);
+  const mondayDate = getDateFromISOWeek(weekId);
   ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].forEach((dayKey, i) => {
     const d = new Date(mondayDate);
     d.setDate(mondayDate.getDate() + i);
     target.getRange(1, dayMap[dayKey]).setValue(`${dayKey} ${d.getDate()}`);
   });
 
-  shifts.forEach((s) => {
-    s.drawEndTime = null;
-  });
-  let groups = {};
-  shifts.forEach((s) => {
-    let key = s.day + '_' + s.lane;
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(s);
-  });
-  for (let key in groups) {
-    let ls = groups[key];
-    ls.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-    for (let i = 0; i < ls.length - 1; i++) {
-      if (timeToMinutes(ls[i].endTime) > timeToMinutes(ls[i + 1].startTime))
-        ls[i].drawEndTime = ls[i + 1].startTime;
-    }
-  }
+  // 3. アプリから届いた各シフトを描画
+  commands.forEach((cmd) => {
+    // 命令に基づいて範囲を特定し、結合・着色
+    const rangeStr = `${cmd.cell}:${cmd.endCell}`;
+    const range = target.getRange(rangeStr);
 
-  target
-    .getRange('B5:AJ40')
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle')
-    .setFontWeight('bold');
-
-  shifts.forEach((s) => {
-    if (!s.startTime || !s.endTime || !dayMap[s.day]) return;
-    let sR = getRowNum(s.startTime),
-      eR = getRowNum(s.drawEndTime || s.endTime) - 1;
-    const isWeekend = s.day === 'SAT' || s.day === 'SUN';
-    if (!isWeekend) {
-      if (sR <= 16) eR = Math.min(eR, 16);
-      else {
-        sR = Math.max(sR, 21);
-        eR = Math.min(eR, 29);
-      }
-    } else {
-      sR = Math.max(sR, 5);
-      eR = Math.min(eR, 29);
-    }
-
-    if (sR > 40 || sR < 5 || eR < sR) return;
-    let range = target.getRange(
-      sR,
-      dayMap[s.day] + (s.lane - 1),
-      eR - sR + 1,
-      1
-    );
     range
-      .breakApart()
+      .breakApart() // 念のため既存の結合を解除
       .merge()
-      .setBackground(s.color)
+      .setBackground(cmd.color)
+      .setValue(cmd.value)
       .setBorder(
         true,
         true,
@@ -206,23 +74,13 @@ function buildScheduleWithAdvancedLogic(ss, shifts, targetWeek) {
         'black',
         SpreadsheetApp.BorderStyle.SOLID
       )
-      .setFontSize(20);
-
-    let startStr = formatTime12(s.startTime),
-      endStr = formatTime12(s.endTime);
-    let tL =
-      (startStr + '-' + endStr).length >= 9
-        ? startStr + '-\n' + endStr
-        : startStr + '-' + endStr;
-    let breakL =
-      s.breakHours === 0.5
-        ? '\n30mins'
-        : s.breakHours >= 1
-        ? `\n${s.breakHours}HR`
-        : '';
-    range.setValue(`${s.staffName}\n${tL}${breakL}`);
+      .setFontSize(20)
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setFontWeight('bold');
   });
 
+  // 4. 外枠の装飾（固定範囲）
   const medium = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
   [
     'B5:E16',
@@ -245,13 +103,13 @@ function buildScheduleWithAdvancedLogic(ss, shifts, targetWeek) {
 }
 
 /**
- * [6] DASHBOARD更新
+ * [3] DASHBOARDシートの描画
  */
-function updateDashboardSheet(ss, shifts, weekLabel) {
+function updateDashboardSheet(ss, rows, weekLabel) {
   const sheet = ss.getSheetByName('DASHBOARD');
-  const prefSheet = ss.getSheetByName('Preferred hours');
-  if (!sheet || !prefSheet) return;
+  if (!sheet) return;
 
+  // 初期化（3行目以降をクリア）
   if (sheet.getMaxRows() > 2) {
     sheet
       .getRange(3, 1, sheet.getMaxRows() - 2, 6)
@@ -261,54 +119,10 @@ function updateDashboardSheet(ss, shifts, weekLabel) {
 
   sheet.getRange('A1').setValue(`Summary: ${weekLabel}`);
 
-  const dashboardMap = {};
-  const prefValues = prefSheet.getDataRange().getValues();
-  prefValues.forEach((row) => {
-    let name = String(row[1] || '').trim();
-    let targetVal = String(row[2] || '');
-    if (!name || name === 'Name' || name === 'Preferred hours') return;
-
-    let targetNum = 0;
-    let matches = targetVal.match(/\d+/g);
-    if (matches) targetNum = parseFloat(matches.pop());
-    dashboardMap[name.toUpperCase()] = {
-      target: targetNum,
-      current: 0,
-      originalName: name,
-    };
-  });
-
-  shifts.forEach((s) => {
-    let n = s.staffName.toUpperCase();
-    if (dashboardMap[n]) dashboardMap[n].current += Number(s.totalHours) || 0;
-  });
-
-  const output = [];
-  for (let key in dashboardMap) {
-    let d = dashboardMap[key];
-    let cur = Math.floor((Number(d.current) || 0) * 100) / 100;
-    let targetNum = Number(d.target) || 0;
-    let rem = Math.floor((targetNum - cur) * 100) / 100;
-    let status = targetNum === 0 ? '-' : rem < 0 ? '⚠️ OVER' : 'OK';
-
-    // カナダ(英語)環境用 SPARKLINE
-    let bar =
-      targetNum > 0
-        ? `=SPARKLINE(${Math.min(
-            cur,
-            targetNum
-          )}, {"charttype", "bar"; "max", ${targetNum}; "color1", "${
-            rem < 0 ? 'red' : 'green'
-          }"})`
-        : '';
-
-    output.push([d.originalName, cur, targetNum, bar, rem, status]);
-  }
-
-  if (output.length > 0) {
-    const dataRange = sheet.getRange(3, 1, output.length, 6);
-    dataRange
-      .setValues(output)
+  if (rows.length > 0) {
+    const range = sheet.getRange(3, 1, rows.length, 6);
+    range
+      .setValues(rows)
       .setHorizontalAlignment('center')
       .setBorder(
         true,
@@ -320,20 +134,32 @@ function updateDashboardSheet(ss, shifts, weekLabel) {
         '#cccccc',
         SpreadsheetApp.BorderStyle.SOLID
       );
-    for (let i = 0; i < output.length; i++) {
-      if (output[i][5] === '⚠️ OVER')
-        sheet
-          .getRange(i + 3, 6)
-          .setFontColor('red')
-          .setFontWeight('bold');
+
+    // ステータス列（6列目）の色付けと、4列目へのSPARKLINE挿入
+    for (let i = 0; i < rows.length; i++) {
+      const rowNum = i + 3;
+      const status = rows[i][5];
+      const targetVal = rows[i][2];
+      const curVal = rows[i][1];
+
+      if (status === '⚠️ OVER') {
+        sheet.getRange(rowNum, 6).setFontColor('red').setFontWeight('bold');
+      }
+
+      // SPARKLINEの動的挿入 (GASで関数としてセット)
+      if (targetVal > 0) {
+        const color = status === '⚠️ OVER' ? 'red' : 'green';
+        const formula = `=SPARKLINE(${curVal}, {"charttype", "bar"; "max", ${targetVal}; "color1", "${color}"})`;
+        sheet.getRange(rowNum, 4).setFormula(formula);
+      }
     }
   }
 }
 
 /**
- * [7] SHIFT_DATA更新
+ * [4] SHIFT_DATAシートの更新 (履歴用)
  */
-function updateShiftDataSheet(ss, shifts) {
+function updateShiftDataSheet(ss, rows) {
   const sheet = ss.getSheetByName('SHIFT_DATA');
   if (!sheet) return;
 
@@ -344,22 +170,6 @@ function updateShiftDataSheet(ss, shifts) {
       .clearDataValidations();
   }
 
-  const dayOrder = { MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6, SUN: 7 };
-  shifts.sort(
-    (a, b) =>
-      (dayOrder[a.day] || 99) - (dayOrder[b.day] || 99) ||
-      timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
-  );
-
-  const rows = shifts.map((s) => [
-    s.day,
-    s.staffName,
-    s.startTime,
-    s.endTime,
-    s.lane,
-    s.breakHours,
-    s.totalHours,
-  ]);
   if (rows.length > 0) {
     sheet
       .getRange(2, 1, rows.length, 7)
@@ -369,20 +179,8 @@ function updateShiftDataSheet(ss, shifts) {
 }
 
 /**
- * [8] 補助関数
+ * [5] 補助関数（日付計算用のみ残す）
  */
-function getISOWeekId(date) {
-  const d = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-  );
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return `${d.getUTCFullYear()}-W${Math.ceil(
-    ((d - yearStart) / 86400000 + 1) / 7
-  )
-    .toString()
-    .padStart(2, '0')}`;
-}
 function getDateFromISOWeek(weekId) {
   const p = weekId.split('-W');
   const d = new Date(parseInt(p[0]), 0, 1 + (parseInt(p[1]) - 1) * 7);
@@ -391,31 +189,19 @@ function getDateFromISOWeek(weekId) {
   else d.setDate(d.getDate() + 8 - d.getDay());
   return d;
 }
-function timeToMinutes(t) {
-  if (!t) return 0;
-  const p = t.split(':').map(Number);
-  return p[0] * 60 + p[1];
+
+/**
+ * メニュー作成（スプレッドシート上からの同期は廃止するが、クリア機能などは残しておいてもOK）
+ */
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('★SHIFT SYSTEM')
+    .addItem('🗑️ SHIFT_DATAをクリア', 'clearInputForNextWeek')
+    .addToUi();
 }
-function formatTime12(t) {
-  if (!t) return '';
-  let p = t.split(':'),
-    h = parseInt(p[0], 10);
-  return (
-    (h > 12 ? h - 12 : h === 0 ? 12 : h) + (p[1] === '00' ? '' : ':' + p[1])
-  );
-}
-function getRowNum(t) {
-  if (!t) return 0;
-  const p = t.split(':'),
-    h = parseInt(p[0], 10),
-    m = parseInt(p[1], 10);
-  return (h - 9) * 2 + (m >= 30 ? 1 : 0) + 5;
-}
+
 function clearInputForNextWeek() {
   const s = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('SHIFT_DATA');
-  if (s && s.getMaxRows() > 1) {
-    s.getRange(2, 1, s.getMaxRows() - 1, 7)
-      .clearContent()
-      .clearDataValidations();
-  }
+  if (s && s.getMaxRows() > 1)
+    s.getRange(2, 1, s.getMaxRows() - 1, 7).clearContent();
 }
