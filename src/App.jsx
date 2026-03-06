@@ -24,7 +24,7 @@ const translations = {
     clear: 'Clear Week',
     target: 'Target',
     over: 'OVER',
-    ok: 'OK',
+    ok: 'MET', // OK -> MET へ改善
     time: 'Time',
     addShift: 'Add Shift',
     editShift: 'Edit Shift',
@@ -52,7 +52,7 @@ const translations = {
     clear: 'クリア',
     target: '目標',
     over: '超過',
-    ok: '完了',
+    ok: '達成', // 完了 -> 達成 へ改善
     time: '時間',
     addShift: 'シフト追加',
     editShift: 'シフト編集',
@@ -247,7 +247,6 @@ function App() {
     fetchShifts();
   }, [weekId]);
 
-  // --- 📅 週ナビゲーション ---
   const changeWeek = (offset) => {
     const [year, week] = weekId.split('-W').map(Number);
     const date = new Date(year, 0, 1 + (week - 1) * 7);
@@ -259,7 +258,6 @@ function App() {
     setWeekId(getCurrentWeekId());
   };
 
-  // --- 🚀 GAS同期ロジック ---
   const handleSyncToGAS = async () => {
     if (isProcessing) return;
     const gasUrl = import.meta.env.VITE_GAS_URL;
@@ -661,15 +659,15 @@ function App() {
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3 md:gap-5 min-w-fit">
           <div className="flex flex-col">
+            {/* Shift Builder -> Saku Burquitlam */}
             <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-none">
-              Shift Builder
+              Saku Burquitlam
             </h1>
             <span className="text-[10px] font-bold text-blue-600 uppercase mt-1 tracking-wider">
               {getWeekDisplayVerbose(weekId, lang)}
             </span>
           </div>
 
-          {/* 📅 週ナビゲーションユニット */}
           <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
             <button
               onClick={() => changeWeek(-1)}
@@ -707,7 +705,6 @@ function App() {
         </div>
 
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          {/* 🌐 言語切り替え */}
           <button
             onClick={() => setLang(lang === 'en' ? 'ja' : 'en')}
             className="w-10 h-10 flex items-center justify-center text-xs font-black border-2 border-slate-200 rounded-full hover:bg-slate-100 transition-all uppercase"
@@ -804,7 +801,6 @@ function App() {
       </header>
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
-        {/* ダッシュボード: 自動調整グリッド (repeat(auto-fill)) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4 mb-6">
           {dashboardData.map((d) => (
             <div
