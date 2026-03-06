@@ -104,6 +104,49 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // --- App.jsx 内に追加する一時的なバックアップロジック ---
+
+  const exportFirestoreData = async () => {
+    try {
+      const backupData = {
+        shifts: [],
+        staffs: [],
+      };
+
+      // shifts コレクションの取得
+      const shiftsSnapshot = await getDocs(collection(db, 'shifts'));
+      shiftsSnapshot.forEach((doc) => {
+        backupData.shifts.push({ id: doc.id, ...doc.data() });
+      });
+
+      // staffs コレクションの取得
+      const staffsSnapshot = await getDocs(collection(db, 'staffs'));
+      staffsSnapshot.forEach((doc) => {
+        backupData.staffs.push({ id: doc.id, ...doc.data() });
+      });
+
+      // JSONファイルとしてダウンロード
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `shift_builder_backup_${
+        new Date().toISOString().split('T')[0]
+      }.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      alert('Firebaseデータのバックアップが完了しました！');
+    } catch (error) {
+      console.error('Backup failed:', error);
+      alert('バックアップに失敗しました。詳細はコンソールを確認してください。');
+    }
+  };
+
   // --- 📦 データ取得 ---
   const fetchStaffs = useCallback(async () => {
     const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
@@ -473,6 +516,14 @@ function App() {
                 >
                   🗑️ クリア
                 </button>
+                {/* // --- UI部分にボタンを配置（⚙️メニューの中など） --- */}
+                <button
+                  onClick={exportFirestoreData}
+                  className="px-4 py-2 bg-gray-800 text-white rounded"
+                >
+                  📥 Firebaseバックアップ
+                </button>
+                ;
               </div>
             )}
           </div>
