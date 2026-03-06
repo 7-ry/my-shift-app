@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <style>
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding: 20px;
+        color: #333;
+      }
+      select {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .btn-container {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      button {
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.2s;
+      }
+      .btn-sync {
+        background-color: #1a73e8;
+        color: white;
+      }
+      .btn-sync:hover {
+        background-color: #174ea6;
+      }
+      .btn-cancel {
+        background-color: #f1f3f4;
+        color: #3c4043;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #5f6368;
+      }
+    </style>
+  </head>
+  <body>
+    <label>同期する週を選択してください：</label>
+    <select id="weekDropdown"></select>
+
+    <div class="btn-container">
+      <button class="btn-cancel" onclick="google.script.host.close()">
+        キャンセル
+      </button>
+      <button class="btn-sync" onclick="handleSync()">同期を実行</button>
+    </div>
+
+    <script>
+      // サーバー側から送られた選択肢をプルダウンにセット
+      function setup(options) {
+        const select = document.getElementById('weekDropdown');
+        options.forEach((opt) => {
+          const el = document.createElement('option');
+          el.value = opt.id;
+          el.textContent = opt.label;
+          select.appendChild(el);
+        });
+      }
+
+      // 同期ボタン押下時
+      function handleSync() {
+        const weekId = document.getElementById('weekDropdown').value;
+        const weekLabel =
+          document.getElementById('weekDropdown').selectedOptions[0]
+            .textContent;
+        // サーバー側の関数を呼び出す
+        google.script.run
+          .withSuccessHandler(() => google.script.host.close())
+          .withFailureHandler((err) => alert('エラー: ' + err))
+          .executeSync(weekId, weekLabel);
+      }
+
+      // 起動時に選択肢を取得
+      window.onload = () => {
+        google.script.run.withSuccessHandler(setup).getWeekOptions();
+      };
+    </script>
+  </body>
+</html>
