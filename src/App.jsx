@@ -126,6 +126,7 @@ function App() {
   });
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [staffEditData, setStaffEditData] = useState({});
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null); // 詳細ポップアップ用
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -321,7 +322,6 @@ function App() {
     setIsProcessing(false);
   };
 
-  // --- 🚀 スタッフ編集用ロジック ---
   const handleStartEditStaff = (staff) => {
     setEditingStaffId(staff.id);
     setStaffEditData({
@@ -338,7 +338,6 @@ function App() {
       const oldStaff = staffs.find((s) => s.id === staffId);
       await updateDoc(doc(db, 'staffs', staffId), staffEditData);
 
-      // スタッフ名が変わった場合、関連する全シフトの名前と色も一括更新する
       if (
         oldStaff.name !== staffEditData.name ||
         oldStaff.color !== staffEditData.color
@@ -356,7 +355,6 @@ function App() {
           });
         });
         await batch.commit();
-        // シフトのローカルステートも更新
         setShifts((prev) =>
           prev.map((s) =>
             s.staffName === oldStaff.name
@@ -584,10 +582,10 @@ function App() {
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4 md:gap-6 min-w-fit">
           <div className="flex flex-col">
-            <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-tight">
+            <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-tight text-shadow-sm">
               Shift Builder
             </h1>
-            <span className="text-[10px] font-bold text-blue-600 uppercase whitespace-nowrap">
+            <span className="text-[10px] font-bold text-blue-600 uppercase whitespace-nowrap tracking-tighter">
               {getWeekDisplayVerbose(weekId)}
             </span>
           </div>
@@ -595,7 +593,7 @@ function App() {
             type="week"
             value={weekId}
             onChange={(e) => setWeekId(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 md:px-3 md:py-1.5 text-xs md:text-sm font-bold cursor-pointer"
+            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 md:px-3 md:py-1.5 text-xs md:text-sm font-bold cursor-pointer hover:bg-slate-100 transition-colors"
           />
         </div>
 
@@ -689,42 +687,48 @@ function App() {
       </header>
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
+        {/* ダッシュボード (2-7列 レスポンシブ) */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
           {dashboardData.map((d) => (
             <div
               key={d.id}
-              className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition-all hover:shadow-md"
+              onClick={() => setViewingStaffDetail(d)}
+              className="group bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer relative overflow-hidden active:scale-95"
             >
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-bold text-slate-600">
+              <div className="flex justify-between items-center mb-2 relative z-10">
+                <span className="text-xs font-bold text-slate-600 group-hover:text-blue-600 transition-colors">
                   {d.name}
                 </span>
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all ${
                     d.remaining < 0
-                      ? 'bg-red-100 text-red-700'
+                      ? 'bg-red-500 text-white shadow-sm scale-110'
                       : 'bg-green-100 text-green-700'
                   }`}
                 >
                   {d.remaining < 0 ? 'OVER' : 'OK'}
                 </span>
               </div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-1 relative z-10">
                 <span className="text-2xl font-black text-slate-800">
                   {d.currentHours}
                 </span>
-                <span className="text-xs text-slate-400 font-medium">
+                <span className="text-xs text-slate-400 font-medium tracking-tight">
                   / {d.target}h
                 </span>
               </div>
-              <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+              <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden relative z-10">
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    d.remaining < 0 ? 'bg-red-500' : 'bg-slate-800'
+                  className={`h-full rounded-full transition-all duration-700 ease-out ${
+                    d.remaining < 0
+                      ? 'bg-red-500 animate-pulse'
+                      : 'bg-slate-800'
                   }`}
                   style={{ width: `${d.progressPercent}%` }}
                 ></div>
               </div>
+              {/* 装飾用背景 */}
+              <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 rounded-full -mr-8 -mt-8 group-hover:bg-blue-50 transition-colors duration-500"></div>
             </div>
           ))}
         </div>
@@ -756,7 +760,7 @@ function App() {
                         className={`border-b border-slate-100 bg-slate-50/50 text-[9px] font-semibold text-slate-400 w-12 text-center ${
                           lane === 4
                             ? 'border-r-2 border-r-slate-400'
-                            : 'border-r border-r-slate-100'
+                            : 'border-r border-slate-100'
                         }`}
                       >
                         L{lane}
@@ -802,7 +806,7 @@ function App() {
                               lane === 4
                                 ? 'border-r-2 border-r-slate-400'
                                 : 'border-r border-r-slate-100'
-                            } p-0 hover:bg-blue-50/50 cursor-crosshair relative`}
+                            } p-0 hover:bg-blue-50/50 cursor-crosshair relative transition-colors duration-100`}
                           >
                             {cellShifts.map((shift) => (
                               <div
@@ -814,9 +818,9 @@ function App() {
                                 onPointerDown={(e) =>
                                   handlePointerDownShift(e, shift, 'move')
                                 }
-                                className={`absolute inset-x-0.5 rounded-md p-1.5 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/5 z-10 cursor-grab ${
+                                className={`absolute inset-x-0.5 rounded-md p-1.5 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/5 z-10 cursor-grab active:cursor-grabbing transition-shadow ${
                                   dragInfo?.id === shift.id
-                                    ? 'z-50 opacity-90 scale-[1.02] shadow-xl'
+                                    ? 'z-50 opacity-90 scale-[1.02] shadow-xl ring-2 ring-blue-400'
                                     : ''
                                 }`}
                                 style={{
@@ -848,10 +852,10 @@ function App() {
                                     )
                                   }
                                 />
-                                <span className="font-bold text-[10px] text-slate-800 truncate w-full pointer-events-none leading-none">
+                                <span className="font-bold text-[10px] text-slate-800 truncate w-full pointer-events-none leading-none tracking-tighter">
                                   {shift.staffName}
                                 </span>
-                                <span className="text-[9px] text-slate-700/80 pointer-events-none mt-1">
+                                <span className="text-[9px] text-slate-700/80 pointer-events-none mt-1 font-medium">
                                   {shift.startTime}-{shift.endTime}
                                 </span>
                                 <div
@@ -878,7 +882,99 @@ function App() {
         </div>
       </div>
 
-      {/* モーダル: スタッフ設定 (強化版) */}
+      {/* モーダル: スタッフ詳細ポップアップ (NEW!) */}
+      {viewingStaffDetail && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] p-4"
+          onClick={() => setViewingStaffDetail(null)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="p-6 border-b flex justify-between items-center bg-slate-50"
+              style={{ borderTop: `8px solid ${viewingStaffDetail.color}` }}
+            >
+              <div>
+                <h2 className="text-2xl font-black text-slate-800 leading-none">
+                  {viewingStaffDetail.name}
+                </h2>
+                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                  Weekly Shift Details
+                </p>
+              </div>
+              <button
+                onClick={() => setViewingStaffDetail(null)}
+                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm text-slate-400 hover:text-slate-600 font-bold transition-all active:scale-90"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-6 space-y-3">
+              {shifts
+                .filter((s) => s.staffName === viewingStaffDetail.name)
+                .sort(
+                  (a, b) =>
+                    DAYS.indexOf(a.day) - DAYS.indexOf(b.day) ||
+                    timeToMins(a.startTime) - timeToMins(b.startTime)
+                )
+                .map((s, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:bg-white hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-white shadow-sm"
+                        style={{ backgroundColor: viewingStaffDetail.color }}
+                      >
+                        <span className="text-[10px] leading-none opacity-80">
+                          {s.day}
+                        </span>
+                        <span className="text-lg leading-none mt-0.5">
+                          L{s.lane}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-slate-800 tracking-tight">
+                          {s.startTime} - {s.endTime}
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase">
+                          Break: {s.breakHours}h
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-black text-slate-800">
+                        {s.totalHours}
+                      </div>
+                      <div className="text-[10px] font-bold text-slate-400 leading-none">
+                        hours
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              {shifts.filter((s) => s.staffName === viewingStaffDetail.name)
+                .length === 0 && (
+                <div className="text-center py-10 text-slate-400 font-bold italic">
+                  No shifts assigned this week.
+                </div>
+              )}
+            </div>
+            <div className="p-6 bg-slate-50 border-t flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-400 uppercase">
+                Total Hours
+              </span>
+              <span className="text-2xl font-black text-slate-800">
+                {viewingStaffDetail.currentHours} / {viewingStaffDetail.target}h
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* モーダル: スタッフ管理 (強化版継続) */}
       {showStaffModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
@@ -918,7 +1014,7 @@ function App() {
                           </label>
                           <input
                             type="text"
-                            className="w-full px-4 py-2 rounded-xl border border-blue-300 font-bold text-sm uppercase"
+                            className="w-full px-4 py-2 rounded-xl border border-blue-300 font-bold text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
                             value={staffEditData.name}
                             onChange={(e) =>
                               setStaffEditData({
@@ -934,7 +1030,7 @@ function App() {
                           </label>
                           <input
                             type="number"
-                            className="w-full px-4 py-2 rounded-xl border border-blue-300 font-bold text-sm"
+                            className="w-full px-4 py-2 rounded-xl border border-blue-300 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"
                             value={staffEditData.target}
                             onChange={(e) =>
                               setStaffEditData({
@@ -952,7 +1048,7 @@ function App() {
                           </label>
                           <input
                             type="color"
-                            className="w-8 h-8 rounded cursor-pointer"
+                            className="w-8 h-8 rounded cursor-pointer border-none bg-transparent"
                             value={staffEditData.color}
                             onChange={(e) =>
                               setStaffEditData({
@@ -971,7 +1067,7 @@ function App() {
                           </button>
                           <button
                             onClick={() => handleUpdateStaff(s.id)}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-md"
+                            className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all"
                           >
                             保存
                           </button>
@@ -984,14 +1080,14 @@ function App() {
                         <button
                           onClick={() => handleMoveStaff(index, -1)}
                           disabled={index === 0}
-                          className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0"
+                          className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0 transition-opacity"
                         >
                           ▲
                         </button>
                         <button
                           onClick={() => handleMoveStaff(index, 1)}
                           disabled={index === staffs.length - 1}
-                          className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0"
+                          className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0 transition-opacity"
                         >
                           ▼
                         </button>
@@ -1001,19 +1097,24 @@ function App() {
                         style={{ backgroundColor: s.color }}
                       ></div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-black text-slate-800">
+                        <div className="font-black text-slate-800 leading-tight">
                           {s.name}
                         </div>
                         <div className="text-[11px] font-bold text-slate-400 tracking-tight flex items-center gap-2">
                           目標: {s.target}h{' '}
                           <span className="text-slate-200">|</span>{' '}
-                          <span style={{ color: s.color }}>■ {s.color}</span>
+                          <span
+                            style={{ color: s.color }}
+                            className="text-[9px] font-mono"
+                          >
+                            {s.color}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleStartEditStaff(s)}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
                         >
                           ✏️
                         </button>
@@ -1030,7 +1131,7 @@ function App() {
                               setIsProcessing(false);
                             }
                           }}
-                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors"
+                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
                         >
                           🗑️
                         </button>
@@ -1094,7 +1195,7 @@ function App() {
                 />
                 <button
                   type="submit"
-                  className="flex-1 bg-slate-900 text-white rounded-xl py-2 font-bold hover:bg-slate-800 transition-all shadow-lg"
+                  className="flex-1 bg-slate-900 text-white rounded-xl py-2 font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95"
                 >
                   新規追加
                 </button>
@@ -1117,7 +1218,7 @@ function App() {
               過去からコピー
             </h2>
             <select
-              className="w-full bg-slate-100 border-none rounded-2xl px-4 py-4 font-bold mb-8 appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-slate-100 border-none rounded-2xl px-4 py-4 font-bold mb-8 appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500 text-center"
               value={selectedCopyWeek}
               onChange={(e) => setSelectedCopyWeek(e.target.value)}
             >
@@ -1157,60 +1258,81 @@ function App() {
             className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-black mb-6 text-center text-slate-800">
-              {editingShift.staffName}
-            </h2>
+            <div className="flex items-center gap-3 mb-6">
+              <div
+                className="w-3 h-10 rounded-full"
+                style={{ backgroundColor: editingShift.color }}
+              ></div>
+              <h2 className="text-2xl font-black text-slate-800">
+                {editingShift.staffName}
+              </h2>
+            </div>
             <form onSubmit={handleUpdateShift} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="time"
-                  className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold"
-                  value={editingShift.startTime}
-                  onChange={(e) =>
-                    setEditingShift({
-                      ...editingShift,
-                      startTime: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  type="time"
-                  className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold"
-                  value={editingShift.endTime}
-                  onChange={(e) =>
-                    setEditingShift({
-                      ...editingShift,
-                      endTime: e.target.value,
-                    })
-                  }
-                />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">
+                    Start
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500"
+                    value={editingShift.startTime}
+                    onChange={(e) =>
+                      setEditingShift({
+                        ...editingShift,
+                        startTime: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">
+                    End
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500"
+                    value={editingShift.endTime}
+                    onChange={(e) =>
+                      setEditingShift({
+                        ...editingShift,
+                        endTime: e.target.value,
+                      })
+                    }
+                  />
+                </div>
               </div>
-              <select
-                className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 font-bold appearance-none"
-                value={editingShift.breakHours}
-                onChange={(e) =>
-                  setEditingShift({
-                    ...editingShift,
-                    breakHours: parseFloat(e.target.value),
-                  })
-                }
-              >
-                <option value="0">休憩なし</option>
-                <option value="0.5">30分</option>
-                <option value="1">1時間</option>
-                <option value="1.5">1.5時間</option>
-              </select>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">
+                  Break
+                </label>
+                <select
+                  className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 font-bold appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500"
+                  value={editingShift.breakHours}
+                  onChange={(e) =>
+                    setEditingShift({
+                      ...editingShift,
+                      breakHours: parseFloat(e.target.value),
+                    })
+                  }
+                >
+                  <option value="0">休憩なし (0h)</option>
+                  <option value="0.5">30分 (0.5h)</option>
+                  <option value="1">1時間 (1.0h)</option>
+                  <option value="1.5">1.5時間 (1.5h)</option>
+                </select>
+              </div>
               <div className="flex gap-3 pt-6">
                 <button
                   type="button"
                   onClick={handleDeleteShift}
-                  className="flex-1 bg-rose-50 text-rose-600 font-bold py-3 rounded-xl transition-colors hover:bg-rose-100"
+                  className="flex-1 bg-rose-50 text-rose-600 font-bold py-3 rounded-xl transition-all hover:bg-rose-100 active:scale-95"
                 >
                   削除
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] bg-slate-900 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-all"
+                  className="flex-[2] bg-slate-900 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-slate-800 active:scale-95 transition-all"
                 >
                   保存
                 </button>
@@ -1221,9 +1343,10 @@ function App() {
       )}
 
       {isProcessing && (
-        <div className="fixed inset-0 bg-white/20 backdrop-blur-[1px] z-[100] flex items-center justify-center cursor-wait">
-          <div className="bg-slate-800 text-white px-6 py-3 rounded-full font-bold shadow-xl animate-pulse">
-            処理中...
+        <div className="fixed inset-0 bg-white/40 backdrop-blur-[2px] z-[100] flex items-center justify-center cursor-wait transition-all">
+          <div className="bg-slate-800 text-white px-8 py-4 rounded-3xl font-black shadow-2xl animate-bounce flex items-center gap-3">
+            <span className="w-3 h-3 bg-blue-400 rounded-full animate-ping"></span>
+            PROCESSING...
           </div>
         </div>
       )}
