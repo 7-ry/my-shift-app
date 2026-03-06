@@ -23,7 +23,7 @@ for (let h = 9; h <= 23; h++) {
 
 const ROW_HEIGHT = 36;
 
-// --- 🌟 スプレッドシート描画用ヘルパー ---
+// --- 🌟 スプレッドシート座標計算ユーティリティ ---
 const getColumnLetter = (colIndex) => {
   let letter = '';
   while (colIndex > 0) {
@@ -34,14 +34,18 @@ const getColumnLetter = (colIndex) => {
   return letter;
 };
 
-const getSheetCell = (day, time, lane) => {
+// 時間からスプレッドシートの行番号を返す (GASのgetRowNumと完全互換)
+const getSheetRowNum = (timeStr) => {
+  if (!timeStr) return 0;
+  const [h, m] = timeStr.split(':').map(Number);
+  return (h - 9) * 2 + (m >= 30 ? 1 : 0) + 5;
+};
+
+const getSheetCellByRow = (day, row, lane) => {
   const dayIdx = DAYS.indexOf(day);
   const baseCol = 2 + dayIdx * 5; // MON=2(B), TUE=7(G)...
   const colLetter = getColumnLetter(baseCol + (lane - 1));
-
-  const [h, m] = time.split(':').map(Number);
-  const rowNum = (h - 9) * 2 + (m >= 30 ? 1 : 0) + 5; // 9:00=row5
-  return `${colLetter}${rowNum}`;
+  return `${colLetter}${row}`;
 };
 
 const formatTime12 = (t) => {
@@ -171,26 +175,18 @@ function App() {
     fetchShifts();
   }, [weekId]);
 
-  // --- 🚀 GAS同期ロジック ---
+  // --- 🚀 GAS同期ロジック (高度な描画ロジック内蔵) ---
   const handleSyncToGAS = async () => {
     if (isProcessing) return;
     const gasUrl = import.meta.env.VITE_GAS_URL;
-
-    // デバッグ用: URLが正しく読み込まれているか確認
-    console.log('Target GAS URL:', gasUrl);
-
-    if (!gasUrl || gasUrl.includes('YOUR_GAS_DEPLOY_ID')) {
-      alert(
-        '.envファイルの VITE_GAS_URL を正しいIDに書き換えて、npm run dev を再起動してください。'
-      );
+    if (!gasUrl) {
+      alert('.envファイルの VITE_GAS_URL を確認してください。');
       return;
     }
 
     if (
       !window.confirm(
-        `${getWeekDisplayVerbose(
-          weekId
-        )} のデータをスプレッドシートに反映しますか？`
+        `${getWeekDisplayVerbose(weekId)} のデータを同期しますか？`
       )
     )
       return;
@@ -199,63 +195,88 @@ function App() {
     setShowMenu(false);
 
     try {
-      // 1. SCHEDULE用データ作成
-      // --- App.jsx 内の修正箇所 ---
-      const scheduleCommands = shifts.map((s) => {
-        const startStr = formatTime12(s.startTime);
-        const endStr = formatTime12(s.endTime);
-        const timeLabel =
-          (startStr + '-' + endStr).length >= 9
-            ? `${startStr}-\n${endStr}`
-            : `${startStr}-${endStr}`;
-        const breakLabel =
-          s.breakHours === 0.5
-            ? '\n30mins'
-            : s.breakHours >= 1
-            ? `\n${s.breakHours}HR`
-            : '';
-
-        // 終了行を -1 するロジック
-        const [h, m] = s.endTime.split(':').map(Number);
-        const endRowNum = (h - 9) * 2 + (m >= 30 ? 1 : 0) + 5 - 1; // 10:00終了なら row7ではなくrow6まで
-        const dayIdx = DAYS.indexOf(s.day);
-        const baseCol = 2 + dayIdx * 5;
-        const colLetter = getColumnLetter(baseCol + (s.lane - 1));
-        const endCell = `${colLetter}${endRowNum}`;
-
-        return {
-          cell: getSheetCell(s.day, s.startTime, s.lane),
-          endCell: endCell, // 修正後の終了セル
-          value: `${s.staffName}\n${timeLabel}${breakLabel}`,
-          color: s.color,
-          // ...残りは同じ
-        };
+      // 1. 重複クロップロジック
+      let processedShifts = [...shifts].sort(
+        (a, b) => timeToMins(a.startTime) - timeToMins(b.startTime)
+      );
+      const groups = {};
+      processedShifts.forEach((s) => {
+        const key = `${s.day}_${s.lane}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push({ ...s, drawEndTime: s.endTime });
       });
 
-      // 2. DASHBOARD用データの計算（この関数内で計算するように変更し ReferenceError を防止）
-      const currentDashboardData = staffs.map((staff) => {
+      for (let key in groups) {
+        let ls = groups[key];
+        for (let i = 0; i < ls.length - 1; i++) {
+          if (timeToMins(ls[i].endTime) > timeToMins(ls[i + 1].startTime)) {
+            ls[i].drawEndTime = ls[i + 1].startTime;
+          }
+        }
+      }
+
+      // 2. 命令セットの生成（境界クリップ含む）
+      const scheduleCommands = [];
+      Object.values(groups)
+        .flat()
+        .forEach((s) => {
+          let sR = getSheetRowNum(s.startTime);
+          let eR = getSheetRowNum(s.drawEndTime) - 1;
+
+          const isWeekend = s.day === 'SAT' || s.day === 'SUN';
+          if (!isWeekend) {
+            if (sR <= 16) {
+              eR = Math.min(eR, 16);
+            } else {
+              sR = Math.max(sR, 21);
+              eR = Math.min(eR, 29);
+            }
+          } else {
+            sR = Math.max(sR, 5);
+            eR = Math.min(eR, 29);
+          }
+
+          // 描画範囲外、または逆転した場合はスキップ
+          if (sR > 40 || sR < 5 || eR < sR) return;
+
+          const startStr = formatTime12(s.startTime);
+          const endStr = formatTime12(s.endTime);
+          const timeLabel =
+            (startStr + '-' + endStr).length >= 9
+              ? `${startStr}-\n${endStr}`
+              : `${startStr}-${endStr}`;
+          const breakLabel =
+            s.breakHours === 0.5
+              ? '\n30mins'
+              : s.breakHours >= 1
+              ? `\n${s.breakHours}HR`
+              : '';
+
+          scheduleCommands.push({
+            cell: getSheetCellByRow(s.day, sR, s.lane),
+            endCell: getSheetCellByRow(s.day, eR, s.lane),
+            value: `${s.staffName}\n${timeLabel}${breakLabel}`,
+            color: s.color,
+          });
+        });
+
+      // 3. ダッシュボードデータの集計
+      const dashboardRows = staffs.map((staff) => {
         const total = shifts
           .filter((s) => s.staffName === staff.name)
           .reduce((acc, s) => acc + s.totalHours, 0);
-        const totalFixed = Math.floor(total * 100) / 100;
-        return {
-          name: staff.name,
-          currentHours: totalFixed,
-          target: staff.target,
-          remaining: Math.floor((staff.target - totalFixed) * 100) / 100,
-        };
+        const current = Math.floor(total * 100) / 100;
+        const rem = Math.floor((staff.target - current) * 100) / 100;
+        return [
+          staff.name,
+          current,
+          staff.target,
+          '', // Sparkline placeholder
+          rem,
+          rem < 0 ? '⚠️ OVER' : 'OK',
+        ];
       });
 
-      const dashboardRows = currentDashboardData.map((d) => [
-        d.name,
-        d.currentHours,
-        d.target,
-        '', // SPARKLINE用（GAS側で処理）
-        d.remaining,
-        d.remaining < 0 ? '⚠️ OVER' : 'OK',
-      ]);
-
-      // 3. 全データのパッケージ化 (ここで payload を定義)
       const payload = {
         weekId,
         weekLabel: getWeekDisplayVerbose(weekId),
@@ -272,20 +293,17 @@ function App() {
         ]),
       };
 
-      // 🚀 ここで定義した後にログを出す
-      console.log('Sending Payload to GAS:', payload);
-
-      const response = await fetch(gasUrl, {
+      await fetch(gasUrl, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      alert('同期命令を送信しました。スプレッドシートを確認してください。');
+      alert('同期命令を送信しました。シートを確認してください。');
     } catch (error) {
-      console.error('Sync Error:', error);
-      alert('同期に失敗しました。詳細はコンソールを確認してください。');
+      console.error(error);
+      alert('同期エラーが発生しました。');
     }
     setIsProcessing(false);
   };
@@ -811,7 +829,6 @@ function App() {
         </div>
       </div>
 
-      {/* モーダル: スタッフ設定、コピー、編集 (省略せず維持) */}
       {showStaffModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
@@ -1054,7 +1071,6 @@ function App() {
         </div>
       )}
 
-      {/* 処理中オーバーレイ */}
       {isProcessing && (
         <div className="fixed inset-0 bg-white/20 backdrop-blur-[1px] z-[100] flex items-center justify-center cursor-wait">
           <div className="bg-slate-800 text-white px-6 py-3 rounded-full font-bold shadow-xl animate-pulse">
