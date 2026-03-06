@@ -86,7 +86,7 @@ for (let h = 9; h <= 23; h++) {
 }
 
 const ROW_HEIGHT = 36;
-const DRAG_THRESHOLD = 5; // 5px動かない限りドラッグを開始しない
+const DRAG_THRESHOLD = 5;
 
 // --- 🌟 ヘルパー関数 ---
 const getColumnLetter = (colIndex) => {
@@ -197,8 +197,6 @@ function App() {
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [staffEditData, setStaffEditData] = useState({});
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
-
-  // ドラッグの「遊び」を判定するための座標保存用
   const [isActuallyDragging, setIsActuallyDragging] = useState(false);
 
   useEffect(() => {
@@ -480,13 +478,13 @@ function App() {
       id: shift.id,
       type,
       startY: e.clientY,
-      startX: e.clientX, // Xも保存してしきい値判定に使う
+      startX: e.clientX,
       initStartMins: timeToMins(shift.startTime),
       initEndMins: timeToMins(shift.endTime),
       initDay: shift.day,
       initLane: shift.lane,
     });
-    setIsActuallyDragging(false); // 初期化
+    setIsActuallyDragging(false);
     e.target.setPointerCapture(e.pointerId);
   };
 
@@ -495,8 +493,6 @@ function App() {
       if (!dragInfo) return;
       const deltaY = e.clientY - dragInfo.startY;
       const deltaX = e.clientX - dragInfo.startX;
-
-      // しきい値を超えない限り何もしない（遊びを作る）
       if (
         !isActuallyDragging &&
         (Math.abs(deltaY) > DRAG_THRESHOLD || Math.abs(deltaX) > DRAG_THRESHOLD)
@@ -504,7 +500,6 @@ function App() {
         setIsActuallyDragging(true);
       }
       if (!isActuallyDragging) return;
-
       const deltaMins = Math.round(((deltaY / ROW_HEIGHT) * 30) / 5) * 5;
       const targetTd = document
         .elementsFromPoint(e.clientX, e.clientY)
@@ -648,7 +643,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
-      {/* メインヘッダー: sticky top-0 */}
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px]">
         <div className="flex items-center gap-3 md:gap-5 min-w-fit">
           <div className="flex flex-col">
@@ -694,7 +688,6 @@ function App() {
             </button>
           </div>
         </div>
-
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
           <button
             onClick={() => setLang(lang === 'en' ? 'ja' : 'en')}
@@ -740,7 +733,7 @@ function App() {
               ⚙️
             </button>
             {showMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in slide-in-from-top-2">
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in slide-in-from-top-2">
                 <button
                   onClick={handleSyncToGAS}
                   className="w-full text-left px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-3"
@@ -841,15 +834,13 @@ function App() {
           ))}
         </div>
 
-        {/* シフトエリアコンテナ: スクロールバーのカスタマイズ */}
-        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-8 border-t-slate-900 custom-scrollbar">
+        {/* タイムテーブルコンテナ: border-t-2 にスリム化 */}
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900 custom-scrollbar">
           <div className="overflow-x-auto overflow-y-visible">
             <table className="w-full border-collapse table-fixed min-w-[1400px] select-none">
-              <thead className="sticky z-40" style={{ top: '0' }}>
-                {' '}
-                {/* JS側で top 位置をヘッダー高さに合わせるか、CSSクラスで指定 */}
-                <tr className="bg-white shadow-sm">
-                  {/* Time列のヘッダー: 2重sticky */}
+              {/* theadにbg-whiteとz-indexをしっかり持たせ、thにも背景を設定 */}
+              <thead className="sticky top-0 z-40 bg-white">
+                <tr className="bg-white">
                   <th className="w-16 border-b border-r-2 border-slate-200 bg-white sticky left-0 top-0 z-50 p-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter h-12">
                     {t.time}
                   </th>
@@ -864,7 +855,7 @@ function App() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="relative">
+              <tbody>
                 {TIMES.map((time) => (
                   <tr key={time} className="h-9 group">
                     <td className="border-b border-r-2 border-slate-200 text-center text-[11px] font-black text-slate-400 bg-white sticky left-0 z-20 group-hover:bg-slate-50 transition-colors uppercase">
@@ -892,7 +883,7 @@ function App() {
                             data-lane={lane}
                             onDoubleClick={() =>
                               handleAddShift(day, time, lane)
-                            } // ダブルクリックに変更
+                            }
                             className={`border-b ${
                               time.endsWith(':30')
                                 ? 'border-slate-100'
@@ -980,7 +971,7 @@ function App() {
         </div>
       </div>
 
-      {/* --- モーダル類 (以前と同様のため構造維持) --- */}
+      {/* --- モーダル類 --- */}
       {viewingStaffDetail && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
@@ -1309,7 +1300,7 @@ function App() {
           onClick={() => setEditingShift(null)}
         >
           <div
-            className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-8"
+            className="bg-white rounded-[40px] shadow-2xl w-full max-sm p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-4 mb-8">
@@ -1417,7 +1408,6 @@ function App() {
         </div>
       )}
 
-      {/* グローバルスタイル: カスタムスクロールバーとスティッキー調整 */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -1426,8 +1416,8 @@ function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* 曜日ヘッダーをメインヘッダー(72px)の下に固定 */
-        thead.sticky { top: 72px !important; }
+        /* theadはコンテナ内で固定 */
+        thead.sticky { top: 0 !important; }
       `,
         }}
       />
