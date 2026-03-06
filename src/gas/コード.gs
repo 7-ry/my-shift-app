@@ -1,23 +1,26 @@
 /**
- * [1] アプリからのPOSTリクエストを受け取る (メイン・エントリーポイント)
+ * [1] アプリからのPOSTリクエストを受信 (メイン・エントリーポイント)
  */
 function doPost(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  // デバッグ用：シートのどこかに実行時間を記録（動いているか確認用）
   ss.toast('同期リクエストを受信しました', '実行中...');
 
   try {
     const data = JSON.parse(e.postData.contents);
-    // ...（中身は前回の提供通り）...
 
-    // 完了通知
+    // 各シートの更新を実行
+    updateScheduleSheet(ss, data.scheduleCommands, data.weekId, data.weekLabel);
+    updateDashboardSheet(ss, data.dashboardRows, data.weekLabel);
+    updateShiftDataSheet(ss, data.shiftDataRows);
+
     ss.toast('同期が完了しました！', '成功');
     return ContentService.createTextOutput(
       JSON.stringify({ status: 'success' })
     ).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    // エラー時はスプレッドシート上にアラートを出す
-    SpreadsheetApp.getUi().alert('GASエラー: ' + err.toString());
+    // エラー時はスプレッドシート上に通知
+    console.error(err.toString());
+    ss.toast('エラーが発生しました: ' + err.toString(), '失敗', -1);
     return ContentService.createTextOutput(
       JSON.stringify({ status: 'error', message: err.toString() })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -25,18 +28,16 @@ function doPost(e) {
 }
 
 /**
- * [2] SCHEDULEシートの描画
+ * [2] SCHEDULEシートの描画 (命令セットに基づき実行)
  */
 function updateScheduleSheet(ss, commands, weekId, weekLabel) {
   const target = ss.getSheetByName('SCHEDULE');
   const template = ss.getSheetByName('TEMPLATE_MASTER');
   if (!target || !template) return;
 
-  // 1. テンプレートのコピー
   target.clear().clearFormats();
   template.getDataRange().copyTo(target.getRange(1, 1));
 
-  // 2. ヘッダーの日付更新
   const dayMap = {
     MON: 2,
     TUE: 7,
@@ -53,14 +54,12 @@ function updateScheduleSheet(ss, commands, weekId, weekLabel) {
     target.getRange(1, dayMap[dayKey]).setValue(`${dayKey} ${d.getDate()}`);
   });
 
-  // 3. アプリから届いた各シフトを描画
   commands.forEach((cmd) => {
-    // 命令に基づいて範囲を特定し、結合・着色
     const rangeStr = `${cmd.cell}:${cmd.endCell}`;
     const range = target.getRange(rangeStr);
 
     range
-      .breakApart() // 念のため既存の結合を解除
+      .breakApart()
       .merge()
       .setBackground(cmd.color)
       .setValue(cmd.value)
@@ -80,7 +79,6 @@ function updateScheduleSheet(ss, commands, weekId, weekLabel) {
       .setFontWeight('bold');
   });
 
-  // 4. 外枠の装飾（固定範囲）
   const medium = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
   [
     'B5:E16',
@@ -109,7 +107,6 @@ function updateDashboardSheet(ss, rows, weekLabel) {
   const sheet = ss.getSheetByName('DASHBOARD');
   if (!sheet) return;
 
-  // 初期化（3行目以降をクリア）
   if (sheet.getMaxRows() > 2) {
     sheet
       .getRange(3, 1, sheet.getMaxRows() - 2, 6)
@@ -135,7 +132,6 @@ function updateDashboardSheet(ss, rows, weekLabel) {
         SpreadsheetApp.BorderStyle.SOLID
       );
 
-    // ステータス列（6列目）の色付けと、4列目へのSPARKLINE挿入
     for (let i = 0; i < rows.length; i++) {
       const rowNum = i + 3;
       const status = rows[i][5];
@@ -146,7 +142,6 @@ function updateDashboardSheet(ss, rows, weekLabel) {
         sheet.getRange(rowNum, 6).setFontColor('red').setFontWeight('bold');
       }
 
-      // SPARKLINEの動的挿入 (GASで関数としてセット)
       if (targetVal > 0) {
         const color = status === '⚠️ OVER' ? 'red' : 'green';
         const formula = `=SPARKLINE(${curVal}, {"charttype", "bar"; "max", ${targetVal}; "color1", "${color}"})`;
@@ -157,7 +152,7 @@ function updateDashboardSheet(ss, rows, weekLabel) {
 }
 
 /**
- * [4] SHIFT_DATAシートの更新 (履歴用)
+ * [4] SHIFT_DATAシートの更新
  */
 function updateShiftDataSheet(ss, rows) {
   const sheet = ss.getSheetByName('SHIFT_DATA');
@@ -179,7 +174,7 @@ function updateShiftDataSheet(ss, rows) {
 }
 
 /**
- * [5] 補助関数（日付計算用のみ残す）
+ * [5] 補助関数
  */
 function getDateFromISOWeek(weekId) {
   const p = weekId.split('-W');
@@ -191,7 +186,7 @@ function getDateFromISOWeek(weekId) {
 }
 
 /**
- * メニュー作成（スプレッドシート上からの同期は廃止するが、クリア機能などは残しておいてもOK）
+ * [6] UIメニュー設定 (同期ボタンはApp側へ移行したため削除)
  */
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
