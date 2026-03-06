@@ -846,9 +846,14 @@ function App() {
         </div>
 
         {/* 📅 タイムテーブルコンテナ: 2軸固定の実装 */}
-        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900">
+        {/* sticky と top を追加し、z-index を調整して他の要素との重なりを制御します */}
+        <div className="sticky top-16 md:top-[72px] z-30 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900 transition-all duration-300">
+          {' '}
           {/* overflow-auto を追加し、max-h を指定することでコンテナ内スクロールを有効化 */}
-          <div className="overflow-auto max-h-[75vh] custom-scrollbar">
+          {/* max-h を調整することで、一度に表示できる時間の範囲（縦幅）が変わります */}
+          {/* calc(100vh - ヘッダー高さ) を使うことで、画面の下端までピッタリ表示されます */}
+          <div className="overflow-auto max-h-[calc(100vh-140px)] md:max-h-[calc(100vh-160px)] custom-scrollbar">
+            {' '}
             <table className="w-full border-collapse table-fixed min-w-[1200px] md:min-w-[1400px] select-none">
               {/* 曜日ヘッダー: sticky top-0 (コンテナ上部に吸着) */}
               <thead className="sticky top-0 z-40 bg-white">
