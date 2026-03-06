@@ -88,7 +88,7 @@ for (let h = 9; h <= 23; h++) {
 const ROW_HEIGHT = 36;
 const DRAG_THRESHOLD = 5;
 
-// --- 🌟 ヘルパー関数 ---
+// --- 🌟 ヘルパー関数群 ---
 const getColumnLetter = (colIndex) => {
   let letter = '';
   while (colIndex > 0) {
@@ -148,12 +148,14 @@ const getWeekDisplayVerbose = (weekId, lang = 'en') => {
   if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
   else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
   const end = new Date(ISOweekStart);
-  end.setDate(ISOweekStart.getDate() + 6);
-  const options = { month: 'short', day: 'numeric' };
-  return `${ISOweekStart.toLocaleDateString(
-    lang === 'en' ? 'en-CA' : 'ja-JP',
-    options
-  )} - ${end.toLocaleDateString(lang === 'en' ? 'en-CA' : 'ja-JP', options)}`;
+  end.setDate(ISOweekStart.setDate() + 6);
+  return `${ISOweekStart.toLocaleDateString(lang === 'en' ? 'en-CA' : 'ja-JP', {
+    month: 'short',
+    day: 'numeric',
+  })} - ${end.toLocaleDateString(lang === 'en' ? 'en-CA' : 'ja-JP', {
+    month: 'short',
+    day: 'numeric',
+  })}`;
 };
 
 const getCurrentWeekId = (date = new Date()) => {
@@ -172,7 +174,6 @@ function App() {
     () => localStorage.getItem('appLang') || 'en'
   );
   const t = translations[lang];
-
   const [staffs, setStaffs] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [shifts, setShifts] = useState([]);
@@ -186,8 +187,6 @@ function App() {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [availableWeeks, setAvailableWeeks] = useState([]);
   const [selectedCopyWeek, setSelectedCopyWeek] = useState('');
-  const menuRef = useRef(null);
-  const hasInitialized = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [newStaff, setNewStaff] = useState({
     name: '',
@@ -198,30 +197,37 @@ function App() {
   const [staffEditData, setStaffEditData] = useState({});
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [isActuallyDragging, setIsActuallyDragging] = useState(false);
+  const menuRef = useRef(null);
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
     localStorage.setItem('appLang', lang);
   }, [lang]);
-
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target))
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target))
         setShowMenu(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // --- 👥 スタッフフェッチ & 初期化 (ここを復元しました) ---
   const fetchStaffs = useCallback(async () => {
     const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
     const snapshot = await getDocs(q);
     const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+
     if (list.length === 0 && !hasInitialized.current) {
       hasInitialized.current = true;
       const initial = [
         { name: 'KANA', color: '#bae6fd', target: 39, order: 0 },
         { name: 'RYUSHIN', color: '#bbf7d0', target: 38, order: 1 },
         { name: 'SAYAKA', color: '#e9d5ff', target: 24, order: 2 },
+        { name: 'EITO', color: '#fecdd3', target: 24, order: 3 },
+        { name: 'KEITO', color: '#e2e8f0', target: 24, order: 4 },
+        { name: 'DAISUKE', color: '#bfdbfe', target: 24, order: 5 },
+        { name: 'AIRA', color: '#fed7aa', target: 24, order: 6 },
       ];
       const batch = writeBatch(db);
       initial.forEach((s) => batch.set(doc(collection(db, 'staffs')), s));
@@ -236,7 +242,6 @@ function App() {
   useEffect(() => {
     fetchStaffs();
   }, [fetchStaffs]);
-
   useEffect(() => {
     localStorage.setItem('lastViewedWeek', weekId);
     const fetchShifts = async () => {
@@ -253,16 +258,12 @@ function App() {
     date.setDate(date.getDate() + offset * 7);
     setWeekId(getCurrentWeekId(date));
   };
-
   const jumpToToday = () => setWeekId(getCurrentWeekId());
 
   const handleSyncToGAS = async () => {
     if (isProcessing) return;
     const gasUrl = import.meta.env.VITE_GAS_URL;
-    if (!gasUrl) {
-      alert('.env Error: VITE_GAS_URL');
-      return;
-    }
+    if (!gasUrl) return alert('.env Error: VITE_GAS_URL');
     if (
       !window.confirm(`${t.confirmSync} ${getWeekDisplayVerbose(weekId, lang)}`)
     )
@@ -330,9 +331,7 @@ function App() {
           .reduce((acc, s) => acc + s.totalHours, 0);
         const current = Math.floor(total * 100) / 100,
           rem = Math.floor((staff.target - current) * 100) / 100;
-        let statusLabel = t.met;
-        if (rem < 0) statusLabel = `⚠️ ${t.over}`;
-        else if (rem > 0) statusLabel = t.room;
+        let statusLabel = rem < 0 ? `⚠️ ${t.over}` : rem === 0 ? t.met : t.room;
         return [staff.name, current, staff.target, '', rem, statusLabel];
       });
       const payload = {
@@ -425,6 +424,7 @@ function App() {
       setStaffs((prev) =>
         prev.map((s) => (s.id === staffId ? { ...s, ...staffEditData } : s))
       );
+      if (selectedStaff === oldStaff.name) setSelectedStaff(staffEditData.name);
       setEditingStaffId(null);
     } catch (e) {
       console.error(e);
@@ -643,7 +643,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px]">
+      <header className="sticky top-0 z-[100] bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-16 md:h-[72px]">
         <div className="flex items-center gap-3 md:gap-5 min-w-fit">
           <div className="flex flex-col">
             <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-none">
@@ -660,19 +660,12 @@ function App() {
             >
               ◀
             </button>
-            <div className="relative group">
-              <input
-                type="week"
-                value={weekId}
-                onChange={(e) => setWeekId(e.target.value)}
-                className="bg-transparent border-none text-xs font-black w-32 cursor-pointer text-center focus:ring-0"
-              />
-              <div className="absolute inset-0 pointer-events-none bg-transparent group-hover:bg-black/5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] bg-slate-800 text-white px-1.5 rounded uppercase">
-                  {t.week}
-                </span>
-              </div>
-            </div>
+            <input
+              type="week"
+              value={weekId}
+              onChange={(e) => setWeekId(e.target.value)}
+              className="bg-transparent border-none text-xs font-black w-32 cursor-pointer text-center focus:ring-0"
+            />
             <button
               onClick={() => changeWeek(1)}
               className="w-8 h-8 flex items-center justify-center hover:bg-white rounded-lg transition-all text-sm"
@@ -688,6 +681,7 @@ function App() {
             </button>
           </div>
         </div>
+
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
           <button
             onClick={() => setLang(lang === 'en' ? 'ja' : 'en')}
@@ -695,19 +689,6 @@ function App() {
           >
             {lang}
           </button>
-          <div className="md:hidden flex-1 max-w-[120px]">
-            <select
-              value={selectedStaff}
-              onChange={(e) => setSelectedStaff(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none"
-            >
-              {staffs.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar px-2 border-r border-slate-100 mr-2 pr-2 py-2">
             {staffs.map((s) => (
               <button
@@ -822,8 +803,6 @@ function App() {
                   className={`h-full rounded-full transition-all duration-700 ease-out ${
                     d.remaining < 0
                       ? 'bg-red-500 animate-pulse'
-                      : d.remaining === 0
-                      ? 'bg-blue-600'
                       : 'bg-slate-800'
                   }`}
                   style={{ width: `${d.progressPercent}%` }}
@@ -834,21 +813,20 @@ function App() {
           ))}
         </div>
 
-        {/* タイムテーブルコンテナ: border-t-2 にスリム化 */}
-        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900 custom-scrollbar">
-          <div className="overflow-x-auto overflow-y-visible">
-            <table className="w-full border-collapse table-fixed min-w-[1400px] select-none">
-              {/* theadにbg-whiteとz-indexをしっかり持たせ、thにも背景を設定 */}
+        {/* 📅 タイムテーブルコンテナ: 2軸固定の実装 */}
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900">
+          <div className="overflow-auto max-h-[70vh] custom-scrollbar">
+            <table className="w-full border-collapse table-fixed min-w-[1200px] md:min-w-[1400px] select-none">
               <thead className="sticky top-0 z-40 bg-white">
                 <tr className="bg-white">
-                  <th className="w-16 border-b border-r-2 border-slate-200 bg-white sticky left-0 top-0 z-50 p-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter h-12">
+                  <th className="w-16 border-b border-r-2 border-slate-200 bg-slate-50 sticky left-0 top-0 z-50 p-2 text-[10px] font-black text-slate-400 uppercase h-12">
                     {t.time}
                   </th>
                   {DAYS.map((day) => (
                     <th
                       key={day}
                       colSpan={4}
-                      className="border-b border-r-2 border-slate-200 bg-white p-3 text-center font-black text-slate-800 tracking-widest text-sm sticky top-0 z-30"
+                      className="border-b border-r-2 border-slate-200 bg-white p-3 text-center font-black text-slate-800 tracking-widest text-sm"
                     >
                       {day}
                     </th>
@@ -858,7 +836,7 @@ function App() {
               <tbody>
                 {TIMES.map((time) => (
                   <tr key={time} className="h-9 group">
-                    <td className="border-b border-r-2 border-slate-200 text-center text-[11px] font-black text-slate-400 bg-white sticky left-0 z-20 group-hover:bg-slate-50 transition-colors uppercase">
+                    <td className="border-b border-r-2 border-slate-200 text-center text-[10px] md:text-[11px] font-black text-slate-400 bg-slate-50 sticky left-0 z-30 group-hover:bg-slate-50 transition-colors uppercase">
                       <span
                         className={
                           time.endsWith(':00') ? 'text-slate-800' : 'opacity-40'
@@ -908,7 +886,7 @@ function App() {
                                 className={`absolute inset-x-1 rounded-lg p-2 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/10 z-10 cursor-grab active:cursor-grabbing transition-shadow ${
                                   dragInfo?.id === shift.id &&
                                   isActuallyDragging
-                                    ? 'z-50 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-blue-500'
+                                    ? 'z-[100] opacity-90 scale-[1.02] shadow-2xl ring-2 ring-blue-500'
                                     : ''
                                 }`}
                                 style={{
@@ -940,10 +918,10 @@ function App() {
                                     )
                                   }
                                 />
-                                <span className="font-black text-[11px] text-slate-900 truncate w-full pointer-events-none leading-none tracking-tight uppercase">
+                                <span className="font-black text-[10px] text-slate-900 truncate w-full pointer-events-none uppercase tracking-tighter">
                                   {shift.staffName}
                                 </span>
-                                <span className="text-[9px] text-slate-800/60 pointer-events-none mt-1 font-black tracking-tighter">
+                                <span className="hidden md:block text-[9px] text-slate-800/60 pointer-events-none mt-1 font-black tracking-tighter">
                                   {formatTime12(shift.startTime)}-
                                   {formatTime12(shift.endTime)}
                                 </span>
@@ -971,10 +949,10 @@ function App() {
         </div>
       </div>
 
-      {/* --- モーダル類 --- */}
+      {/* --- モーダル: スタッフ詳細ポップアップ --- */}
       {viewingStaffDetail && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[200] p-4"
           onClick={() => setViewingStaffDetail(null)}
         >
           <div
@@ -986,7 +964,7 @@ function App() {
               style={{ borderTop: `12px solid ${viewingStaffDetail.color}` }}
             >
               <div>
-                <h2 className="text-3xl font-black text-slate-800 uppercase leading-none tracking-tight">
+                <h2 className="text-3xl font-black text-slate-800 leading-none uppercase">
                   {viewingStaffDetail.name}
                 </h2>
                 <p className="text-[10px] font-black text-slate-400 mt-2 uppercase tracking-[0.2em]">
@@ -1035,13 +1013,8 @@ function App() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-black text-slate-800 leading-none">
-                        {s.totalHours}
-                      </div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
-                        hrs
-                      </div>
+                    <div className="text-right font-black text-slate-800">
+                      {s.totalHours} hrs
                     </div>
                   </div>
                 ))}
@@ -1067,12 +1040,11 @@ function App() {
         </div>
       )}
 
+      {/* --- モーダル: スタッフ管理 --- */}
       {showStaffModal && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
-          onClick={() => {
-            if (!isProcessing) setShowStaffModal(false);
-          }}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[200] p-4"
+          onClick={() => setShowStaffModal(false)}
         >
           <div
             className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
@@ -1108,7 +1080,7 @@ function App() {
                           </label>
                           <input
                             type="text"
-                            className="w-full px-5 py-3 rounded-2xl border-2 border-blue-200 font-black text-sm uppercase focus:border-blue-500 outline-none"
+                            className="w-full px-5 py-3 rounded-2xl border-2 border-blue-200 font-black text-sm uppercase outline-none focus:border-blue-500"
                             value={staffEditData.name}
                             onChange={(e) =>
                               setStaffEditData({
@@ -1171,14 +1143,14 @@ function App() {
                         <button
                           onClick={() => handleMoveStaff(index, -1)}
                           disabled={index === 0}
-                          className="text-xs text-slate-300 hover:text-slate-900 disabled:opacity-0 transition-all"
+                          className="text-xs text-slate-300 hover:text-slate-900 transition-all"
                         >
                           ▲
                         </button>
                         <button
                           onClick={() => handleMoveStaff(index, 1)}
                           disabled={index === staffs.length - 1}
-                          className="text-xs text-slate-300 hover:text-slate-900 disabled:opacity-0 transition-all"
+                          className="text-xs text-slate-300 hover:text-slate-900 transition-all"
                         >
                           ▼
                         </button>
@@ -1205,7 +1177,7 @@ function App() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleStartEditStaff(s)}
-                          className="p-3 text-slate-300 hover:text-blue-600 hover:bg-white rounded-full transition-all shadow-sm hover:shadow-md"
+                          className="p-3 text-slate-300 hover:text-blue-600 hover:bg-white rounded-full transition-all shadow-sm"
                         >
                           ✏️
                         </button>
@@ -1220,7 +1192,7 @@ function App() {
                               setIsProcessing(false);
                             }
                           }}
-                          className="p-3 text-slate-300 hover:text-rose-500 hover:bg-white rounded-full transition-all shadow-sm hover:shadow-md"
+                          className="p-3 text-slate-300 hover:text-rose-500 hover:bg-white rounded-full transition-all shadow-sm"
                         >
                           🗑️
                         </button>
@@ -1284,7 +1256,7 @@ function App() {
                 />
                 <button
                   type="submit"
-                  className="flex-1 bg-white text-slate-900 rounded-2xl py-3 font-black uppercase text-sm hover:bg-blue-400 transition-all shadow-2xl active:scale-95 tracking-widest"
+                  className="flex-1 bg-white text-slate-900 rounded-2xl py-3 font-black uppercase text-sm hover:bg-blue-400 transition-all shadow-2xl active:scale-95 tracking-widest uppercase"
                 >
                   Add Staff
                 </button>
@@ -1294,13 +1266,14 @@ function App() {
         </div>
       )}
 
+      {/* --- モーダル: シフト編集 --- */}
       {editingShift && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[200] p-4"
           onClick={() => setEditingShift(null)}
         >
           <div
-            className="bg-white rounded-[40px] shadow-2xl w-full max-sm p-8"
+            className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-4 mb-8">
@@ -1320,12 +1293,12 @@ function App() {
             <form onSubmit={handleUpdateShift} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
+                  <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">
                     Start
                   </label>
                   <input
                     type="time"
-                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-black focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
+                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-black focus:border-blue-500 focus:bg-white outline-none shadow-inner"
                     value={editingShift.startTime}
                     onChange={(e) =>
                       setEditingShift({
@@ -1336,12 +1309,12 @@ function App() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
+                  <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">
                     End
                   </label>
                   <input
                     type="time"
-                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-black focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
+                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-black focus:border-blue-500 focus:bg-white outline-none shadow-inner"
                     value={editingShift.endTime}
                     onChange={(e) =>
                       setEditingShift({
@@ -1353,43 +1326,38 @@ function App() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
+                <label className="text-[10px] font-black text-slate-400 ml-1 uppercase">
                   {t.break}
                 </label>
-                <div className="relative">
-                  <select
-                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-6 py-4 font-black appearance-none cursor-pointer focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
-                    value={editingShift.breakHours}
-                    onChange={(e) =>
-                      setEditingShift({
-                        ...editingShift,
-                        breakHours: parseFloat(e.target.value),
-                      })
-                    }
-                  >
-                    <option value="0">None (0h)</option>
-                    <option value="0.5">30 mins (0.5h)</option>
-                    <option value="1">1 hour (1.0h)</option>
-                    <option value="1.5">1.5 hours (1.5h)</option>
-                  </select>
-                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
-                    ▼
-                  </div>
-                </div>
+                <select
+                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-6 py-4 font-black appearance-none cursor-pointer focus:border-blue-500 shadow-inner"
+                  value={editingShift.breakHours}
+                  onChange={(e) =>
+                    setEditingShift({
+                      ...editingShift,
+                      breakHours: parseFloat(e.target.value),
+                    })
+                  }
+                >
+                  <option value="0">None (0h)</option>
+                  <option value="0.5">30 mins (0.5h)</option>
+                  <option value="1">1 hour (1.0h)</option>
+                  <option value="1.5">1.5 hours (1.5h)</option>
+                </select>
               </div>
               <div className="flex gap-4 pt-6">
                 <button
                   type="button"
                   onClick={handleDeleteShift}
-                  className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs tracking-widest"
+                  className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs"
                 >
-                  {t.delete}
+                  Delete
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-slate-800 active:scale-95 transition-all uppercase text-xs tracking-widest"
+                  className="flex-[2] bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl active:scale-95 transition-all uppercase text-xs"
                 >
-                  {t.save}
+                  Save
                 </button>
               </div>
             </form>
@@ -1398,8 +1366,8 @@ function App() {
       )}
 
       {isProcessing && (
-        <div className="fixed inset-0 bg-white/40 backdrop-blur-[4px] z-[100] flex items-center justify-center transition-all duration-500">
-          <div className="bg-slate-900 text-white px-10 py-6 rounded-[32px] font-black shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] animate-bounce flex items-center gap-4 border-2 border-white/20">
+        <div className="fixed inset-0 bg-white/40 backdrop-blur-[4px] z-[300] flex items-center justify-center">
+          <div className="bg-slate-900 text-white px-10 py-6 rounded-[32px] font-black shadow-2xl animate-bounce flex items-center gap-4 border-2 border-white/20">
             <span className="w-4 h-4 bg-blue-500 rounded-full animate-ping"></span>
             <span className="uppercase tracking-[0.3em] text-sm">
               {t.processing}
@@ -1411,12 +1379,9 @@ function App() {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-        .custom-scrollbar::-webkit-scrollbar { height: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* theadはコンテナ内で固定 */
+        .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 3px solid white; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
         thead.sticky { top: 0 !important; }
       `,
         }}
