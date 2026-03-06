@@ -34,7 +34,6 @@ const getColumnLetter = (colIndex) => {
   return letter;
 };
 
-// 時間からスプレッドシートの行番号を返す (GASのgetRowNumと完全互換)
 const getSheetRowNum = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
@@ -43,7 +42,7 @@ const getSheetRowNum = (timeStr) => {
 
 const getSheetCellByRow = (day, row, lane) => {
   const dayIdx = DAYS.indexOf(day);
-  const baseCol = 2 + dayIdx * 5; // MON=2(B), TUE=7(G)...
+  const baseCol = 2 + dayIdx * 5;
   const colLetter = getColumnLetter(baseCol + (lane - 1));
   return `${colLetter}${row}`;
 };
@@ -125,6 +124,8 @@ function App() {
     color: '#cbd5e1',
     target: 24,
   });
+  const [editingStaffId, setEditingStaffId] = useState(null);
+  const [staffEditData, setStaffEditData] = useState({});
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -175,7 +176,6 @@ function App() {
     fetchShifts();
   }, [weekId]);
 
-  // --- 🚀 GAS同期ロジック (高度な描画ロジック内蔵) ---
   const handleSyncToGAS = async () => {
     if (isProcessing) return;
     const gasUrl = import.meta.env.VITE_GAS_URL;
@@ -195,7 +195,6 @@ function App() {
     setShowMenu(false);
 
     try {
-      // 1. 重複クロップロジック
       let processedShifts = [...shifts].sort(
         (a, b) => timeToMins(a.startTime) - timeToMins(b.startTime)
       );
@@ -215,19 +214,16 @@ function App() {
         }
       }
 
-      // 2. 命令セットの生成（境界クリップ含む）
       const scheduleCommands = [];
       Object.values(groups)
         .flat()
         .forEach((s) => {
           let sR = getSheetRowNum(s.startTime);
           let eR = getSheetRowNum(s.drawEndTime) - 1;
-
           const isWeekend = s.day === 'SAT' || s.day === 'SUN';
           if (!isWeekend) {
-            if (sR <= 16) {
-              eR = Math.min(eR, 16);
-            } else {
+            if (sR <= 16) eR = Math.min(eR, 16);
+            else {
               sR = Math.max(sR, 21);
               eR = Math.min(eR, 29);
             }
@@ -235,10 +231,7 @@ function App() {
             sR = Math.max(sR, 5);
             eR = Math.min(eR, 29);
           }
-
-          // 描画範囲外、または逆転した場合はスキップ
           if (sR > 40 || sR < 5 || eR < sR) return;
-
           const startStr = formatTime12(s.startTime);
           const endStr = formatTime12(s.endTime);
           const timeLabel =
@@ -251,7 +244,6 @@ function App() {
               : s.breakHours >= 1
               ? `\n${s.breakHours}HR`
               : '';
-
           scheduleCommands.push({
             cell: getSheetCellByRow(s.day, sR, s.lane),
             endCell: getSheetCellByRow(s.day, eR, s.lane),
@@ -260,7 +252,6 @@ function App() {
           });
         });
 
-      // 3. ダッシュボードデータの集計
       const dashboardRows = staffs.map((staff) => {
         const total = shifts
           .filter((s) => s.staffName === staff.name)
@@ -271,7 +262,7 @@ function App() {
           staff.name,
           current,
           staff.target,
-          '', // Sparkline placeholder
+          '',
           rem,
           rem < 0 ? '⚠️ OVER' : 'OK',
         ];
@@ -292,14 +283,12 @@ function App() {
           s.totalHours,
         ]),
       };
-
       await fetch(gasUrl, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       alert('同期命令を送信しました。シートを確認してください。');
     } catch (error) {
       console.error(error);
@@ -326,6 +315,66 @@ function App() {
     try {
       await batch.commit();
       setStaffs(newStaffs);
+    } catch (e) {
+      console.error(e);
+    }
+    setIsProcessing(false);
+  };
+
+  // --- 🚀 スタッフ編集用ロジック ---
+  const handleStartEditStaff = (staff) => {
+    setEditingStaffId(staff.id);
+    setStaffEditData({
+      name: staff.name,
+      target: staff.target,
+      color: staff.color,
+    });
+  };
+
+  const handleUpdateStaff = async (staffId) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const oldStaff = staffs.find((s) => s.id === staffId);
+      await updateDoc(doc(db, 'staffs', staffId), staffEditData);
+
+      // スタッフ名が変わった場合、関連する全シフトの名前と色も一括更新する
+      if (
+        oldStaff.name !== staffEditData.name ||
+        oldStaff.color !== staffEditData.color
+      ) {
+        const batch = writeBatch(db);
+        const q = query(
+          collection(db, 'shifts'),
+          where('staffName', '==', oldStaff.name)
+        );
+        const snapshot = await getDocs(q);
+        snapshot.forEach((d) => {
+          batch.update(doc(db, 'shifts', d.id), {
+            staffName: staffEditData.name,
+            color: staffEditData.color,
+          });
+        });
+        await batch.commit();
+        // シフトのローカルステートも更新
+        setShifts((prev) =>
+          prev.map((s) =>
+            s.staffName === oldStaff.name
+              ? {
+                  ...s,
+                  staffName: staffEditData.name,
+                  color: staffEditData.color,
+                }
+              : s
+          )
+        );
+      }
+
+      setStaffs((prev) =>
+        prev.map((s) => (s.id === staffId ? { ...s, ...staffEditData } : s))
+      );
+      if (selectedStaff === oldStaff.name) setSelectedStaff(staffEditData.name);
+      setEditingStaffId(null);
     } catch (e) {
       console.error(e);
     }
@@ -377,7 +426,7 @@ function App() {
     e.stopPropagation();
     setDragInfo({
       id: shift.id,
-      type: type,
+      type,
       startY: e.clientY,
       initStartMins: timeToMins(shift.startTime),
       initEndMins: timeToMins(shift.endTime),
@@ -414,12 +463,12 @@ function App() {
           } else if (dragInfo.type === 'resize-bottom') {
             nE += deltaMins;
           }
-          const limitStart = timeToMins('09:00');
-          const limitEnd = timeToMins('24:00');
+          const limitStart = timeToMins('09:00'),
+            limitEnd = timeToMins('24:00');
           nS = Math.max(limitStart, Math.min(nS, nE - 15));
           nE = Math.min(limitEnd, Math.max(nE, nS + 15));
-          const sStr = minsToTime(nS);
-          const eStr = minsToTime(nE);
+          const sStr = minsToTime(nS),
+            eStr = minsToTime(nE);
           return {
             ...s,
             startTime: sStr,
@@ -829,17 +878,20 @@ function App() {
         </div>
       </div>
 
+      {/* モーダル: スタッフ設定 (強化版) */}
       {showStaffModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
-          onClick={() => setShowStaffModal(false)}
+          onClick={() => {
+            if (!isProcessing) setShowStaffModal(false);
+          }}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-bold">スタッフ設定</h2>
+              <h2 className="text-xl font-bold">スタッフ管理</h2>
               <button
                 onClick={() => setShowStaffModal(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold"
@@ -847,55 +899,151 @@ function App() {
                 ✕
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {staffs.map((s, index) => (
                 <div
                   key={s.id}
-                  className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl group transition-colors hover:bg-slate-100"
+                  className={`p-4 rounded-2xl border transition-all ${
+                    editingStaffId === s.id
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-slate-50 border-transparent hover:border-slate-200'
+                  }`}
                 >
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => handleMoveStaff(index, -1)}
-                      disabled={index === 0}
-                      className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => handleMoveStaff(index, 1)}
-                      disabled={index === staffs.length - 1}
-                      className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0"
-                    >
-                      ▼
-                    </button>
-                  </div>
-                  <div
-                    className="w-10 h-10 rounded-full shadow-inner border-2 border-white"
-                    style={{ backgroundColor: s.color }}
-                  ></div>
-                  <div className="flex-1">
-                    <div className="font-bold text-sm">{s.name}</div>
-                    <div className="text-[10px] font-bold text-slate-400 tracking-tight">
-                      目標: {s.target}h
+                  {editingStaffId === s.id ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 ml-1">
+                            名前 (英大文字)
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-2 rounded-xl border border-blue-300 font-bold text-sm uppercase"
+                            value={staffEditData.name}
+                            onChange={(e) =>
+                              setStaffEditData({
+                                ...staffEditData,
+                                name: e.target.value.toUpperCase(),
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 ml-1">
+                            目標時間 (h)
+                          </label>
+                          <input
+                            type="number"
+                            className="w-full px-4 py-2 rounded-xl border border-blue-300 font-bold text-sm"
+                            value={staffEditData.target}
+                            onChange={(e) =>
+                              setStaffEditData({
+                                ...staffEditData,
+                                target: Number(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 pt-2">
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-bold text-slate-500">
+                            色:
+                          </label>
+                          <input
+                            type="color"
+                            className="w-8 h-8 rounded cursor-pointer"
+                            value={staffEditData.color}
+                            onChange={(e) =>
+                              setStaffEditData({
+                                ...staffEditData,
+                                color: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingStaffId(null)}
+                            className="px-4 py-2 text-sm font-bold text-slate-500"
+                          >
+                            キャンセル
+                          </button>
+                          <button
+                            onClick={() => handleUpdateStaff(s.id)}
+                            className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-md"
+                          >
+                            保存
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (window.confirm(`${s.name}さんを削除しますか？`)) {
-                        await deleteDoc(doc(db, 'staffs', s.id));
-                        setStaffs(staffs.filter((staff) => staff.id !== s.id));
-                      }
-                    }}
-                    className="text-xs text-rose-500 opacity-0 group-hover:opacity-100 font-bold px-3 py-1 bg-rose-50 rounded-full"
-                  >
-                    削除
-                  </button>
+                  ) : (
+                    <div className="flex items-center gap-4 group">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => handleMoveStaff(index, -1)}
+                          disabled={index === 0}
+                          className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          onClick={() => handleMoveStaff(index, 1)}
+                          disabled={index === staffs.length - 1}
+                          className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                      <div
+                        className="w-12 h-12 rounded-full shadow-inner border-2 border-white flex-shrink-0"
+                        style={{ backgroundColor: s.color }}
+                      ></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-black text-slate-800">
+                          {s.name}
+                        </div>
+                        <div className="text-[11px] font-bold text-slate-400 tracking-tight flex items-center gap-2">
+                          目標: {s.target}h{' '}
+                          <span className="text-slate-200">|</span>{' '}
+                          <span style={{ color: s.color }}>■ {s.color}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleStartEditStaff(s)}
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (
+                              window.confirm(`${s.name}さんを削除しますか？`)
+                            ) {
+                              setIsProcessing(true);
+                              await deleteDoc(doc(db, 'staffs', s.id));
+                              setStaffs(
+                                staffs.filter((staff) => staff.id !== s.id)
+                              );
+                              setIsProcessing(false);
+                            }
+                          }}
+                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
+                setIsProcessing(true);
                 const newOrder = staffs.length;
                 const docRef = await addDoc(collection(db, 'staffs'), {
                   ...newStaff,
@@ -906,13 +1054,14 @@ function App() {
                   { id: docRef.id, ...newStaff, order: newOrder },
                 ]);
                 setNewStaff({ name: '', color: '#cbd5e1', target: 24 });
+                setIsProcessing(false);
               }}
               className="p-6 border-t bg-slate-50 space-y-4"
             >
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="text"
-                  placeholder="名前"
+                  placeholder="新規名前"
                   className="px-4 py-2 rounded-xl border border-slate-200 text-sm uppercase font-bold focus:ring-2 focus:ring-blue-500 outline-none"
                   value={newStaff.name}
                   onChange={(e) =>
@@ -947,7 +1096,7 @@ function App() {
                   type="submit"
                   className="flex-1 bg-slate-900 text-white rounded-xl py-2 font-bold hover:bg-slate-800 transition-all shadow-lg"
                 >
-                  スタッフを追加
+                  新規追加
                 </button>
               </div>
             </form>
