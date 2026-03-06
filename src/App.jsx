@@ -24,7 +24,8 @@ const translations = {
     clear: 'Clear Week',
     target: 'Target',
     over: 'OVER',
-    ok: 'MET', // OK -> MET へ改善
+    met: 'MET', // ちょうど達成
+    room: 'AVAIL', // 余裕あり (NEW!)
     time: 'Time',
     addShift: 'Add Shift',
     editShift: 'Edit Shift',
@@ -52,7 +53,8 @@ const translations = {
     clear: 'クリア',
     target: '目標',
     over: '超過',
-    ok: '達成', // 完了 -> 達成 へ改善
+    met: '達成', // ちょうど達成
+    room: '追加可能', // 余裕あり (NEW!)
     time: '時間',
     addShift: 'シフト追加',
     editShift: 'シフト編集',
@@ -337,14 +339,13 @@ function App() {
           .reduce((acc, s) => acc + s.totalHours, 0);
         const current = Math.floor(total * 100) / 100;
         const rem = Math.floor((staff.target - current) * 100) / 100;
-        return [
-          staff.name,
-          current,
-          staff.target,
-          '',
-          rem,
-          rem < 0 ? `⚠️ ${t.over}` : t.ok,
-        ];
+
+        // 3段階評価のステータス
+        let statusLabel = t.met;
+        if (rem < 0) statusLabel = `⚠️ ${t.over}`;
+        else if (rem > 0) statusLabel = t.room;
+
+        return [staff.name, current, staff.target, '', rem, statusLabel];
       });
 
       const payload = {
@@ -659,7 +660,6 @@ function App() {
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3 md:gap-5 min-w-fit">
           <div className="flex flex-col">
-            {/* Shift Builder -> Saku Burquitlam */}
             <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-none">
               Saku Burquitlam
             </h1>
@@ -812,14 +812,21 @@ function App() {
                 <span className="text-xs font-black text-slate-600 group-hover:text-blue-600 transition-colors uppercase">
                   {d.name}
                 </span>
+                {/* 3段階評価のバッジデザイン */}
                 <span
                   className={`text-[9px] px-2 py-0.5 rounded-full font-black transition-all ${
                     d.remaining < 0
                       ? 'bg-red-500 text-white shadow-sm'
+                      : d.remaining === 0
+                      ? 'bg-blue-600 text-white'
                       : 'bg-green-100 text-green-700'
                   }`}
                 >
-                  {d.remaining < 0 ? t.over : t.ok}
+                  {d.remaining < 0
+                    ? t.over
+                    : d.remaining === 0
+                    ? t.met
+                    : t.room}
                 </span>
               </div>
               <div className="flex items-baseline gap-1 relative z-10">
@@ -835,6 +842,8 @@ function App() {
                   className={`h-full rounded-full transition-all duration-700 ease-out ${
                     d.remaining < 0
                       ? 'bg-red-500 animate-pulse'
+                      : d.remaining === 0
+                      ? 'bg-blue-600'
                       : 'bg-slate-800'
                   }`}
                   style={{ width: `${d.progressPercent}%` }}
