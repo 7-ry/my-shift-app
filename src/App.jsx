@@ -13,6 +13,66 @@ import {
   orderBy,
 } from 'firebase/firestore';
 
+// --- 🌐 多言語辞書 (EN/JA) ---
+const translations = {
+  en: {
+    week: 'Week',
+    today: 'Today',
+    sync: 'Sync to Sheet',
+    copy: 'Copy from Past',
+    manage: 'Manage Staff',
+    clear: 'Clear Week',
+    target: 'Target',
+    over: 'OVER',
+    ok: 'OK',
+    time: 'Time',
+    addShift: 'Add Shift',
+    editShift: 'Edit Shift',
+    delete: 'Delete',
+    save: 'Save',
+    cancel: 'Cancel',
+    break: 'Break',
+    staffName: 'Name',
+    newStaff: 'New Staff',
+    totalHours: 'Total Hours',
+    shiftsDetail: 'Weekly Shift Details',
+    noShifts: 'No shifts assigned this week.',
+    processing: 'PROCESSING...',
+    confirmSync: 'Sync data to Spreadsheet for',
+    confirmDelete: 'Delete this shift?',
+    confirmClear: 'Clear all data for this week?',
+    confirmStaffDelete: 'Delete this staff member?',
+  },
+  ja: {
+    week: '週',
+    today: '今日',
+    sync: 'スプレッドシートへ同期',
+    copy: '過去からコピー',
+    manage: 'スタッフ管理',
+    clear: 'クリア',
+    target: '目標',
+    over: '超過',
+    ok: '完了',
+    time: '時間',
+    addShift: 'シフト追加',
+    editShift: 'シフト編集',
+    delete: '削除',
+    save: '保存',
+    cancel: 'キャンセル',
+    break: '休憩',
+    staffName: '名前',
+    newStaff: '新規スタッフ',
+    totalHours: '合計時間',
+    shiftsDetail: '週間シフト詳細',
+    noShifts: '今週のシフトはありません。',
+    processing: '処理中...',
+    confirmSync: 'スプレッドシートへ同期しますか？：',
+    confirmDelete: 'このシフトを削除しますか？',
+    confirmClear: '今週のデータを全削除しますか？',
+    confirmStaffDelete: 'このスタッフを削除しますか？',
+  },
+};
+
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const LANES = [1, 2, 3, 4];
 const TIMES = [];
@@ -23,7 +83,7 @@ for (let h = 9; h <= 23; h++) {
 
 const ROW_HEIGHT = 36;
 
-// --- 🌟 スプレッドシート座標計算ユーティリティ ---
+// --- 🌟 ヘルパー関数 ---
 const getColumnLetter = (colIndex) => {
   let letter = '';
   while (colIndex > 0) {
@@ -55,7 +115,6 @@ const formatTime12 = (t) => {
   return `${displayH}${displayM}`;
 };
 
-// --- 🌟 既存ヘルパー関数 ---
 const timeToMins = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
@@ -75,7 +134,7 @@ const calcTotalHours = (start, end, breakHours) => {
   return Math.floor(total * 100) / 100;
 };
 
-const getWeekDisplayVerbose = (weekId) => {
+const getWeekDisplayVerbose = (weekId, lang = 'en') => {
   if (!weekId) return '';
   const [year, week] = weekId.split('-W').map(Number);
   const simple = new Date(year, 0, 1 + (week - 1) * 7);
@@ -85,15 +144,17 @@ const getWeekDisplayVerbose = (weekId) => {
   else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
   const end = new Date(ISOweekStart);
   end.setDate(ISOweekStart.getDate() + 6);
-  return `${ISOweekStart.getMonth() + 1}/${ISOweekStart.getDate()}〜${
-    end.getMonth() + 1
-  }/${end.getDate()}`;
+
+  const options = { month: 'short', day: 'numeric' };
+  return `${ISOweekStart.toLocaleDateString(
+    lang === 'en' ? 'en-CA' : 'ja-JP',
+    options
+  )} - ${end.toLocaleDateString(lang === 'en' ? 'en-CA' : 'ja-JP', options)}`;
 };
 
-const getCurrentWeekId = () => {
-  const now = new Date();
+const getCurrentWeekId = (date = new Date()) => {
   const d = new Date(
-    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
   );
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
@@ -103,6 +164,11 @@ const getCurrentWeekId = () => {
 };
 
 function App() {
+  const [lang, setLang] = useState(
+    () => localStorage.getItem('appLang') || 'en'
+  );
+  const t = translations[lang];
+
   const [staffs, setStaffs] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [shifts, setShifts] = useState([]);
@@ -126,7 +192,11 @@ function App() {
   });
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [staffEditData, setStaffEditData] = useState({});
-  const [viewingStaffDetail, setViewingStaffDetail] = useState(null); // 詳細ポップアップ用
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem('appLang', lang);
+  }, [lang]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -177,18 +247,28 @@ function App() {
     fetchShifts();
   }, [weekId]);
 
+  // --- 📅 週ナビゲーション ---
+  const changeWeek = (offset) => {
+    const [year, week] = weekId.split('-W').map(Number);
+    const date = new Date(year, 0, 1 + (week - 1) * 7);
+    date.setDate(date.getDate() + offset * 7);
+    setWeekId(getCurrentWeekId(date));
+  };
+
+  const jumpToToday = () => {
+    setWeekId(getCurrentWeekId());
+  };
+
+  // --- 🚀 GAS同期ロジック ---
   const handleSyncToGAS = async () => {
     if (isProcessing) return;
     const gasUrl = import.meta.env.VITE_GAS_URL;
     if (!gasUrl) {
-      alert('.envファイルの VITE_GAS_URL を確認してください。');
+      alert('.env Error: VITE_GAS_URL');
       return;
     }
-
     if (
-      !window.confirm(
-        `${getWeekDisplayVerbose(weekId)} のデータを同期しますか？`
-      )
+      !window.confirm(`${t.confirmSync} ${getWeekDisplayVerbose(weekId, lang)}`)
     )
       return;
 
@@ -241,9 +321,9 @@ function App() {
               : `${startStr}-${endStr}`;
           const breakLabel =
             s.breakHours === 0.5
-              ? '\n30mins'
+              ? `\n30m`
               : s.breakHours >= 1
-              ? `\n${s.breakHours}HR`
+              ? `\n${s.breakHours}h`
               : '';
           scheduleCommands.push({
             cell: getSheetCellByRow(s.day, sR, s.lane),
@@ -265,13 +345,13 @@ function App() {
           staff.target,
           '',
           rem,
-          rem < 0 ? '⚠️ OVER' : 'OK',
+          rem < 0 ? `⚠️ ${t.over}` : t.ok,
         ];
       });
 
       const payload = {
         weekId,
-        weekLabel: getWeekDisplayVerbose(weekId),
+        weekLabel: getWeekDisplayVerbose(weekId, lang),
         scheduleCommands,
         dashboardRows,
         shiftDataRows: shifts.map((s) => [
@@ -290,10 +370,10 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      alert('同期命令を送信しました。シートを確認してください。');
+      alert('Success!');
     } catch (error) {
       console.error(error);
-      alert('同期エラーが発生しました。');
+      alert('Error');
     }
     setIsProcessing(false);
   };
@@ -367,7 +447,6 @@ function App() {
           )
         );
       }
-
       setStaffs((prev) =>
         prev.map((s) => (s.id === staffId ? { ...s, ...staffEditData } : s))
       );
@@ -408,7 +487,7 @@ function App() {
 
   const handleDeleteShift = async () => {
     if (!editingShift || isProcessing) return;
-    if (!window.confirm('このシフトを削除しますか？')) return;
+    if (!window.confirm(t.confirmDelete)) return;
     setIsProcessing(true);
     try {
       await deleteDoc(doc(db, 'shifts', editingShift.id));
@@ -580,25 +659,63 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4 md:gap-6 min-w-fit">
+        <div className="flex items-center gap-3 md:gap-5 min-w-fit">
           <div className="flex flex-col">
-            <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-tight text-shadow-sm">
+            <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-none">
               Shift Builder
             </h1>
-            <span className="text-[10px] font-bold text-blue-600 uppercase whitespace-nowrap tracking-tighter">
-              {getWeekDisplayVerbose(weekId)}
+            <span className="text-[10px] font-bold text-blue-600 uppercase mt-1 tracking-wider">
+              {getWeekDisplayVerbose(weekId, lang)}
             </span>
           </div>
-          <input
-            type="week"
-            value={weekId}
-            onChange={(e) => setWeekId(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 md:px-3 md:py-1.5 text-xs md:text-sm font-bold cursor-pointer hover:bg-slate-100 transition-colors"
-          />
+
+          {/* 📅 週ナビゲーションユニット */}
+          <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
+            <button
+              onClick={() => changeWeek(-1)}
+              className="w-8 h-8 flex items-center justify-center hover:bg-white rounded-lg transition-all text-sm"
+            >
+              ◀
+            </button>
+            <div className="relative group">
+              <input
+                type="week"
+                value={weekId}
+                onChange={(e) => setWeekId(e.target.value)}
+                className="bg-transparent border-none text-xs font-black w-32 cursor-pointer text-center focus:ring-0"
+              />
+              <div className="absolute inset-0 pointer-events-none bg-transparent group-hover:bg-black/5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[10px] bg-slate-800 text-white px-1.5 rounded uppercase">
+                  {t.week}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => changeWeek(1)}
+              className="w-8 h-8 flex items-center justify-center hover:bg-white rounded-lg transition-all text-sm"
+            >
+              ▶
+            </button>
+            <div className="w-px h-4 bg-slate-300 mx-1"></div>
+            <button
+              onClick={jumpToToday}
+              className="px-3 py-1 text-[10px] font-black uppercase hover:bg-white rounded-lg transition-all"
+            >
+              {t.today}
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          <div className="md:hidden flex-1 max-w-[140px]">
+          {/* 🌐 言語切り替え */}
+          <button
+            onClick={() => setLang(lang === 'en' ? 'ja' : 'en')}
+            className="w-10 h-10 flex items-center justify-center text-xs font-black border-2 border-slate-200 rounded-full hover:bg-slate-100 transition-all uppercase"
+          >
+            {lang}
+          </button>
+
+          <div className="md:hidden flex-1 max-w-[120px]">
             <select
               value={selectedStaff}
               onChange={(e) => setSelectedStaff(e.target.value)}
@@ -633,17 +750,17 @@ function App() {
           <div className="relative flex-shrink-0" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center bg-slate-100 rounded-full hover:bg-slate-200 text-lg md:text-xl transition-colors"
+              className="w-10 h-10 flex items-center justify-center bg-slate-900 text-white rounded-full hover:bg-slate-800 text-xl transition-all shadow-lg active:scale-90"
             >
               ⚙️
             </button>
             {showMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in slide-in-from-top-2">
                 <button
                   onClick={handleSyncToGAS}
                   className="w-full text-left px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-3"
                 >
-                  🔄 スプレッドシートへ同期
+                  🔄 {t.sync}
                 </button>
                 <div className="h-px bg-slate-100 my-1"></div>
                 <button
@@ -654,7 +771,7 @@ function App() {
                   }}
                   className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
                 >
-                  📋 過去からコピー
+                  📋 {t.copy}
                 </button>
                 <button
                   onClick={() => {
@@ -663,12 +780,12 @@ function App() {
                   }}
                   className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
                 >
-                  👥 スタッフ管理
+                  👥 {t.manage}
                 </button>
                 <div className="h-px bg-slate-100 my-1"></div>
                 <button
                   onClick={async () => {
-                    if (window.confirm('この週のデータを全削除しますか？')) {
+                    if (window.confirm(t.confirmClear)) {
                       setShowMenu(false);
                       const b = writeBatch(db);
                       shifts.forEach((s) => b.delete(doc(db, 'shifts', s.id)));
@@ -678,7 +795,7 @@ function App() {
                   }}
                   className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
                 >
-                  🗑️ クリア
+                  🗑️ {t.clear}
                 </button>
               </div>
             )}
@@ -687,8 +804,8 @@ function App() {
       </header>
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
-        {/* ダッシュボード (2-7列 レスポンシブ) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+        {/* ダッシュボード: 自動調整グリッド (repeat(auto-fill)) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4 mb-6">
           {dashboardData.map((d) => (
             <div
               key={d.id}
@@ -696,24 +813,24 @@ function App() {
               className="group bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer relative overflow-hidden active:scale-95"
             >
               <div className="flex justify-between items-center mb-2 relative z-10">
-                <span className="text-xs font-bold text-slate-600 group-hover:text-blue-600 transition-colors">
+                <span className="text-xs font-black text-slate-600 group-hover:text-blue-600 transition-colors uppercase">
                   {d.name}
                 </span>
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all ${
+                  className={`text-[9px] px-2 py-0.5 rounded-full font-black transition-all ${
                     d.remaining < 0
-                      ? 'bg-red-500 text-white shadow-sm scale-110'
+                      ? 'bg-red-500 text-white shadow-sm'
                       : 'bg-green-100 text-green-700'
                   }`}
                 >
-                  {d.remaining < 0 ? 'OVER' : 'OK'}
+                  {d.remaining < 0 ? t.over : t.ok}
                 </span>
               </div>
               <div className="flex items-baseline gap-1 relative z-10">
-                <span className="text-2xl font-black text-slate-800">
+                <span className="text-2xl font-black text-slate-800 tracking-tighter">
                   {d.currentHours}
                 </span>
-                <span className="text-xs text-slate-400 font-medium tracking-tight">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
                   / {d.target}h
                 </span>
               </div>
@@ -727,60 +844,40 @@ function App() {
                   style={{ width: `${d.progressPercent}%` }}
                 ></div>
               </div>
-              {/* 装飾用背景 */}
               <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 rounded-full -mr-8 -mt-8 group-hover:bg-blue-50 transition-colors duration-500"></div>
             </div>
           ))}
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-8 border-t-slate-900">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse table-fixed min-w-[1400px] select-none">
               <thead className="sticky top-0 z-30">
-                <tr className="bg-slate-50">
-                  <th className="w-16 border-b border-r-2 border-slate-300 bg-slate-50 sticky left-0 z-40 p-2 text-xs font-semibold text-slate-500">
-                    Time
+                <tr className="bg-white">
+                  <th className="w-16 border-b border-r-2 border-slate-200 bg-white sticky left-0 z-40 p-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                    {t.time}
                   </th>
                   {DAYS.map((day) => (
                     <th
                       key={day}
                       colSpan={4}
-                      className="border-b border-r-2 border-slate-400 bg-slate-50 p-3 text-center font-bold text-slate-700 tracking-widest"
+                      className="border-b border-r-2 border-slate-200 bg-white p-3 text-center font-black text-slate-800 tracking-widest text-sm"
                     >
                       {day}
                     </th>
                   ))}
                 </tr>
-                <tr className="bg-slate-50">
-                  <th className="border-b border-r-2 border-slate-300 bg-slate-50 sticky left-0 z-40 h-6"></th>
-                  {DAYS.map((day) =>
-                    LANES.map((lane) => (
-                      <th
-                        key={`${day}-${lane}`}
-                        className={`border-b border-slate-100 bg-slate-50/50 text-[9px] font-semibold text-slate-400 w-12 text-center ${
-                          lane === 4
-                            ? 'border-r-2 border-r-slate-400'
-                            : 'border-r border-slate-100'
-                        }`}
-                      >
-                        L{lane}
-                      </th>
-                    ))
-                  )}
-                </tr>
               </thead>
               <tbody>
                 {TIMES.map((time) => (
                   <tr key={time} className="h-9 group">
-                    <td className="border-b border-r-2 border-slate-300 text-center text-[11px] font-medium text-slate-500 bg-white sticky left-0 z-20 group-hover:bg-slate-50 transition-colors">
+                    <td className="border-b border-r-2 border-slate-200 text-center text-[11px] font-black text-slate-400 bg-white sticky left-0 z-20 group-hover:bg-slate-50 transition-colors uppercase">
                       <span
                         className={
-                          time.endsWith(':00')
-                            ? 'text-slate-800'
-                            : 'text-slate-400'
+                          time.endsWith(':00') ? 'text-slate-800' : 'opacity-40'
                         }
                       >
-                        {time.endsWith(':00') ? time : time.split(':')[1]}
+                        {formatTime12(time)}
                       </span>
                     </td>
                     {DAYS.map((day) =>
@@ -800,12 +897,12 @@ function App() {
                             onClick={() => handleAddShift(day, time, lane)}
                             className={`border-b ${
                               time.endsWith(':30')
-                                ? 'border-slate-200'
-                                : 'border-slate-100 border-dashed'
+                                ? 'border-slate-100'
+                                : 'border-slate-50 border-dashed'
                             } ${
                               lane === 4
-                                ? 'border-r-2 border-r-slate-400'
-                                : 'border-r border-r-slate-100'
+                                ? 'border-r-2 border-r-slate-200'
+                                : 'border-r border-slate-50'
                             } p-0 hover:bg-blue-50/50 cursor-crosshair relative transition-colors duration-100`}
                           >
                             {cellShifts.map((shift) => (
@@ -818,9 +915,9 @@ function App() {
                                 onPointerDown={(e) =>
                                   handlePointerDownShift(e, shift, 'move')
                                 }
-                                className={`absolute inset-x-0.5 rounded-md p-1.5 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/5 z-10 cursor-grab active:cursor-grabbing transition-shadow ${
+                                className={`absolute inset-x-1 rounded-lg p-2 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/10 z-10 cursor-grab active:cursor-grabbing transition-shadow ${
                                   dragInfo?.id === shift.id
-                                    ? 'z-50 opacity-90 scale-[1.02] shadow-xl ring-2 ring-blue-400'
+                                    ? 'z-50 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-blue-500'
                                     : ''
                                 }`}
                                 style={{
@@ -829,21 +926,21 @@ function App() {
                                       timeToMins(time)) /
                                       30) *
                                       ROW_HEIGHT +
-                                    1
+                                    2
                                   }px`,
                                   height: `${
                                     ((timeToMins(shift.endTime) -
                                       timeToMins(shift.startTime)) /
                                       30) *
                                       ROW_HEIGHT -
-                                    2
+                                    4
                                   }px`,
                                   backgroundColor: shift.color,
                                   touchAction: 'none',
                                 }}
                               >
                                 <div
-                                  className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-20"
+                                  className="absolute top-0 left-0 right-0 h-3 cursor-ns-resize z-20"
                                   onPointerDown={(e) =>
                                     handlePointerDownShift(
                                       e,
@@ -852,14 +949,15 @@ function App() {
                                     )
                                   }
                                 />
-                                <span className="font-bold text-[10px] text-slate-800 truncate w-full pointer-events-none leading-none tracking-tighter">
+                                <span className="font-black text-[11px] text-slate-900 truncate w-full pointer-events-none leading-none tracking-tight uppercase">
                                   {shift.staffName}
                                 </span>
-                                <span className="text-[9px] text-slate-700/80 pointer-events-none mt-1 font-medium">
-                                  {shift.startTime}-{shift.endTime}
+                                <span className="text-[9px] text-slate-800/60 pointer-events-none mt-1 font-black tracking-tighter">
+                                  {formatTime12(shift.startTime)}-
+                                  {formatTime12(shift.endTime)}
                                 </span>
                                 <div
-                                  className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize z-20"
+                                  className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize z-20"
                                   onPointerDown={(e) =>
                                     handlePointerDownShift(
                                       e,
@@ -882,36 +980,36 @@ function App() {
         </div>
       </div>
 
-      {/* モーダル: スタッフ詳細ポップアップ (NEW!) */}
+      {/* モーダル: スタッフ詳細ポップアップ */}
       {viewingStaffDetail && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] p-4"
           onClick={() => setViewingStaffDetail(null)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200"
+            className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className="p-6 border-b flex justify-between items-center bg-slate-50"
-              style={{ borderTop: `8px solid ${viewingStaffDetail.color}` }}
+              className="p-8 border-b flex justify-between items-center bg-slate-50"
+              style={{ borderTop: `12px solid ${viewingStaffDetail.color}` }}
             >
               <div>
-                <h2 className="text-2xl font-black text-slate-800 leading-none">
+                <h2 className="text-3xl font-black text-slate-800 leading-none uppercase">
                   {viewingStaffDetail.name}
                 </h2>
-                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">
-                  Weekly Shift Details
+                <p className="text-[10px] font-black text-slate-400 mt-2 uppercase tracking-[0.2em]">
+                  {t.shiftsDetail}
                 </p>
               </div>
               <button
                 onClick={() => setViewingStaffDetail(null)}
-                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm text-slate-400 hover:text-slate-600 font-bold transition-all active:scale-90"
+                className="w-12 h-12 flex items-center justify-center bg-white rounded-full shadow-md text-slate-400 hover:text-slate-800 font-bold transition-all active:scale-90"
               >
                 ✕
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto p-6 space-y-3">
+            <div className="max-h-[55vh] overflow-y-auto p-8 space-y-4">
               {shifts
                 .filter((s) => s.staffName === viewingStaffDetail.name)
                 .sort(
@@ -922,59 +1020,63 @@ function App() {
                 .map((s, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:bg-white hover:shadow-md transition-all"
+                    className="flex items-center justify-between p-5 bg-slate-50 rounded-[24px] border border-slate-100 group hover:bg-white hover:shadow-xl transition-all duration-300"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-5">
                       <div
-                        className="w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black text-white shadow-sm"
+                        className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black text-white shadow-lg"
                         style={{ backgroundColor: viewingStaffDetail.color }}
                       >
-                        <span className="text-[10px] leading-none opacity-80">
+                        <span className="text-[10px] leading-none opacity-80 uppercase">
                           {s.day}
                         </span>
-                        <span className="text-lg leading-none mt-0.5">
+                        <span className="text-xl leading-none mt-1">
                           L{s.lane}
                         </span>
                       </div>
                       <div>
-                        <div className="text-sm font-black text-slate-800 tracking-tight">
-                          {s.startTime} - {s.endTime}
+                        <div className="text-base font-black text-slate-800 tracking-tight">
+                          {formatTime12(s.startTime)} -{' '}
+                          {formatTime12(s.endTime)}
                         </div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase">
-                          Break: {s.breakHours}h
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          {t.break}: {s.breakHours}h
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-black text-slate-800">
+                      <div className="text-2xl font-black text-slate-800 leading-none">
                         {s.totalHours}
                       </div>
-                      <div className="text-[10px] font-bold text-slate-400 leading-none">
-                        hours
+                      <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+                        hrs
                       </div>
                     </div>
                   </div>
                 ))}
               {shifts.filter((s) => s.staffName === viewingStaffDetail.name)
                 .length === 0 && (
-                <div className="text-center py-10 text-slate-400 font-bold italic">
-                  No shifts assigned this week.
+                <div className="text-center py-12 text-slate-400 font-black italic uppercase tracking-widest">
+                  {t.noShifts}
                 </div>
               )}
             </div>
-            <div className="p-6 bg-slate-50 border-t flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-400 uppercase">
-                Total Hours
+            <div className="p-8 bg-slate-900 flex justify-between items-center text-white">
+              <span className="text-xs font-black uppercase tracking-widest opacity-60">
+                {t.totalHours}
               </span>
-              <span className="text-2xl font-black text-slate-800">
-                {viewingStaffDetail.currentHours} / {viewingStaffDetail.target}h
+              <span className="text-3xl font-black">
+                {viewingStaffDetail.currentHours}{' '}
+                <span className="text-sm opacity-40">
+                  / {viewingStaffDetail.target}h
+                </span>
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* モーダル: スタッフ管理 (強化版継続) */}
+      {/* モーダル: スタッフ管理 */}
       {showStaffModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
@@ -983,38 +1085,40 @@ function App() {
           }}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-bold">スタッフ管理</h2>
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50">
+              <h2 className="text-2xl font-black uppercase tracking-tight">
+                {t.manage}
+              </h2>
               <button
                 onClick={() => setShowStaffModal(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
+                className="text-slate-400 hover:text-slate-800 font-bold"
               >
                 ✕
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {staffs.map((s, index) => (
                 <div
                   key={s.id}
-                  className={`p-4 rounded-2xl border transition-all ${
+                  className={`p-5 rounded-[28px] border-2 transition-all ${
                     editingStaffId === s.id
-                      ? 'bg-blue-50 border-blue-200'
+                      ? 'bg-blue-50 border-blue-400 shadow-inner'
                       : 'bg-slate-50 border-transparent hover:border-slate-200'
                   }`}
                 >
                   {editingStaffId === s.id ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 ml-1">
-                            名前 (英大文字)
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-black text-slate-400 ml-1 uppercase tracking-widest">
+                            {t.staffName}
                           </label>
                           <input
                             type="text"
-                            className="w-full px-4 py-2 rounded-xl border border-blue-300 font-bold text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-5 py-3 rounded-2xl border-2 border-blue-200 font-black text-sm uppercase focus:border-blue-500 outline-none"
                             value={staffEditData.name}
                             onChange={(e) =>
                               setStaffEditData({
@@ -1024,13 +1128,13 @@ function App() {
                             }
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 ml-1">
-                            目標時間 (h)
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-black text-slate-400 ml-1 uppercase tracking-widest">
+                            {t.target}
                           </label>
                           <input
                             type="number"
-                            className="w-full px-4 py-2 rounded-xl border border-blue-300 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-5 py-3 rounded-2xl border-2 border-blue-200 font-black text-sm focus:border-blue-500 outline-none"
                             value={staffEditData.target}
                             onChange={(e) =>
                               setStaffEditData({
@@ -1041,14 +1145,11 @@ function App() {
                           />
                         </div>
                       </div>
-                      <div className="flex items-center justify-between gap-4 pt-2">
-                        <div className="flex items-center gap-2">
-                          <label className="text-[10px] font-bold text-slate-500">
-                            色:
-                          </label>
+                      <div className="flex items-center justify-between gap-6 pt-2">
+                        <div className="flex items-center gap-3">
                           <input
                             type="color"
-                            className="w-8 h-8 rounded cursor-pointer border-none bg-transparent"
+                            className="w-10 h-10 rounded-full cursor-pointer border-4 border-white shadow-md"
                             value={staffEditData.color}
                             onChange={(e) =>
                               setStaffEditData({
@@ -1058,71 +1159,69 @@ function App() {
                             }
                           />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <button
                             onClick={() => setEditingStaffId(null)}
-                            className="px-4 py-2 text-sm font-bold text-slate-500"
+                            className="px-5 py-2 text-sm font-black text-slate-400 uppercase"
                           >
-                            キャンセル
+                            {t.cancel}
                           </button>
                           <button
                             onClick={() => handleUpdateStaff(s.id)}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all"
+                            className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-all uppercase"
                           >
-                            保存
+                            {t.save}
                           </button>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-4 group">
-                      <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-5 group">
+                      <div className="flex flex-col gap-1.5">
                         <button
                           onClick={() => handleMoveStaff(index, -1)}
                           disabled={index === 0}
-                          className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0 transition-opacity"
+                          className="text-xs text-slate-300 hover:text-slate-900 disabled:opacity-0 transition-all"
                         >
                           ▲
                         </button>
                         <button
                           onClick={() => handleMoveStaff(index, 1)}
                           disabled={index === staffs.length - 1}
-                          className="text-xs text-slate-400 hover:text-slate-800 disabled:opacity-0 transition-opacity"
+                          className="text-xs text-slate-300 hover:text-slate-900 disabled:opacity-0 transition-all"
                         >
                           ▼
                         </button>
                       </div>
                       <div
-                        className="w-12 h-12 rounded-full shadow-inner border-2 border-white flex-shrink-0"
+                        className="w-14 h-14 rounded-full shadow-xl border-4 border-white flex-shrink-0"
                         style={{ backgroundColor: s.color }}
                       ></div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-black text-slate-800 leading-tight">
+                        <div className="font-black text-slate-900 text-lg leading-tight uppercase tracking-tight">
                           {s.name}
                         </div>
-                        <div className="text-[11px] font-bold text-slate-400 tracking-tight flex items-center gap-2">
-                          目標: {s.target}h{' '}
-                          <span className="text-slate-200">|</span>{' '}
+                        <div className="text-[11px] font-bold text-slate-400 tracking-tighter flex items-center gap-3 uppercase">
+                          {t.target}: {s.target}h{' '}
+                          <span className="opacity-20">|</span>{' '}
                           <span
                             style={{ color: s.color }}
-                            className="text-[9px] font-mono"
+                            className="font-mono text-[10px]"
                           >
                             {s.color}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleStartEditStaff(s)}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
+                          className="p-3 text-slate-300 hover:text-blue-600 hover:bg-white rounded-full transition-all shadow-sm hover:shadow-md"
                         >
                           ✏️
                         </button>
                         <button
                           onClick={async () => {
-                            if (
-                              window.confirm(`${s.name}さんを削除しますか？`)
-                            ) {
+                            if (window.confirm(t.confirmStaffDelete)) {
                               setIsProcessing(true);
                               await deleteDoc(doc(db, 'staffs', s.id));
                               setStaffs(
@@ -1131,7 +1230,7 @@ function App() {
                               setIsProcessing(false);
                             }
                           }}
-                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
+                          className="p-3 text-slate-300 hover:text-rose-500 hover:bg-white rounded-full transition-all shadow-sm hover:shadow-md"
                         >
                           🗑️
                         </button>
@@ -1157,13 +1256,13 @@ function App() {
                 setNewStaff({ name: '', color: '#cbd5e1', target: 24 });
                 setIsProcessing(false);
               }}
-              className="p-6 border-t bg-slate-50 space-y-4"
+              className="p-8 border-t bg-slate-900 space-y-5"
             >
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <input
                   type="text"
-                  placeholder="新規名前"
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm uppercase font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder={t.staffName}
+                  className="px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm uppercase placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
                   value={newStaff.name}
                   onChange={(e) =>
                     setNewStaff({
@@ -1175,8 +1274,8 @@ function App() {
                 />
                 <input
                   type="number"
-                  placeholder="目標時間"
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder={t.target}
+                  className="px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
                   value={newStaff.target}
                   onChange={(e) =>
                     setNewStaff({ ...newStaff, target: Number(e.target.value) })
@@ -1184,10 +1283,10 @@ function App() {
                   required
                 />
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <input
                   type="color"
-                  className="w-12 h-10 rounded cursor-pointer border-none bg-transparent"
+                  className="w-12 h-12 rounded-full cursor-pointer border-4 border-white/10 bg-transparent"
                   value={newStaff.color}
                   onChange={(e) =>
                     setNewStaff({ ...newStaff, color: e.target.value })
@@ -1195,9 +1294,9 @@ function App() {
                 />
                 <button
                   type="submit"
-                  className="flex-1 bg-slate-900 text-white rounded-xl py-2 font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95"
+                  className="flex-1 bg-white text-slate-900 rounded-2xl py-3 font-black uppercase text-sm hover:bg-blue-400 transition-all shadow-2xl active:scale-95 tracking-widest"
                 >
-                  新規追加
+                  Add Staff
                 </button>
               </div>
             </form>
@@ -1205,77 +1304,89 @@ function App() {
         </div>
       )}
 
+      {/* モーダル: コピー */}
       {showCopyModal && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
           onClick={() => setShowCopyModal(false)}
         >
           <div
-            className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl"
+            className="bg-white rounded-[40px] p-10 w-full max-w-sm shadow-2xl border-t-[12px] border-t-indigo-600"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold mb-6 text-center">
-              過去からコピー
+            <h2 className="text-2xl font-black mb-8 text-center uppercase tracking-tight">
+              {t.copy}
             </h2>
-            <select
-              className="w-full bg-slate-100 border-none rounded-2xl px-4 py-4 font-bold mb-8 appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500 text-center"
-              value={selectedCopyWeek}
-              onChange={(e) => setSelectedCopyWeek(e.target.value)}
-            >
-              {availableWeeks.map((w) => (
-                <option key={w} value={w}>
-                  {getWeekDisplayVerbose(w)}
-                </option>
-              ))}
-            </select>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="flex-1 py-3 font-bold text-slate-500"
+            <div className="relative mb-10">
+              <select
+                className="w-full bg-slate-100 border-none rounded-2xl px-6 py-5 font-black text-center appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-500 transition-all"
+                value={selectedCopyWeek}
+                onChange={(e) => setSelectedCopyWeek(e.target.value)}
               >
-                キャンセル
-              </button>
+                {availableWeeks.map((w) => (
+                  <option key={w} value={w}>
+                    {getWeekDisplayVerbose(w, lang)}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                ▼
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
               <button
                 onClick={async () => {
                   await executeCopy();
                   setShowCopyModal(false);
                 }}
-                className="flex-[2] bg-indigo-600 text-white font-black py-3 rounded-2xl shadow-lg active:scale-95 transition-all"
+                className="w-full bg-indigo-600 text-white font-black py-5 rounded-[24px] shadow-2xl active:scale-95 transition-all uppercase tracking-widest text-sm"
               >
-                コピーを実行
+                Execute Copy
+              </button>
+              <button
+                onClick={() => setShowCopyModal(false)}
+                className="w-full py-4 font-black text-slate-400 uppercase text-xs tracking-widest"
+              >
+                {t.cancel}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* モーダル: シフト編集 */}
       {editingShift && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
           onClick={() => setEditingShift(null)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6"
+            className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-4 mb-8">
               <div
-                className="w-3 h-10 rounded-full"
+                className="w-4 h-12 rounded-full shadow-sm"
                 style={{ backgroundColor: editingShift.color }}
               ></div>
-              <h2 className="text-2xl font-black text-slate-800">
-                {editingShift.staffName}
-              </h2>
+              <div>
+                <h2 className="text-3xl font-black text-slate-800 uppercase leading-none tracking-tight">
+                  {editingShift.staffName}
+                </h2>
+                <p className="text-[10px] font-black text-slate-400 uppercase mt-1 tracking-widest">
+                  {t.editShift}
+                </p>
+              </div>
             </div>
-            <form onSubmit={handleUpdateShift} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">
+            <form onSubmit={handleUpdateShift} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
                     Start
                   </label>
                   <input
                     type="time"
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-black focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
                     value={editingShift.startTime}
                     onChange={(e) =>
                       setEditingShift({
@@ -1285,13 +1396,13 @@ function App() {
                     }
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
                     End
                   </label>
                   <input
                     type="time"
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-black focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
                     value={editingShift.endTime}
                     onChange={(e) =>
                       setEditingShift({
@@ -1302,39 +1413,44 @@ function App() {
                   />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">
-                  Break
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
+                  {t.break}
                 </label>
-                <select
-                  className="w-full bg-slate-100 border-none rounded-xl px-4 py-3 font-bold appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500"
-                  value={editingShift.breakHours}
-                  onChange={(e) =>
-                    setEditingShift({
-                      ...editingShift,
-                      breakHours: parseFloat(e.target.value),
-                    })
-                  }
-                >
-                  <option value="0">休憩なし (0h)</option>
-                  <option value="0.5">30分 (0.5h)</option>
-                  <option value="1">1時間 (1.0h)</option>
-                  <option value="1.5">1.5時間 (1.5h)</option>
-                </select>
+                <div className="relative">
+                  <select
+                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-6 py-4 font-black appearance-none cursor-pointer focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
+                    value={editingShift.breakHours}
+                    onChange={(e) =>
+                      setEditingShift({
+                        ...editingShift,
+                        breakHours: parseFloat(e.target.value),
+                      })
+                    }
+                  >
+                    <option value="0">None (0h)</option>
+                    <option value="0.5">30 mins (0.5h)</option>
+                    <option value="1">1 hour (1.0h)</option>
+                    <option value="1.5">1.5 hours (1.5h)</option>
+                  </select>
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                    ▼
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-3 pt-6">
+              <div className="flex gap-4 pt-6">
                 <button
                   type="button"
                   onClick={handleDeleteShift}
-                  className="flex-1 bg-rose-50 text-rose-600 font-bold py-3 rounded-xl transition-all hover:bg-rose-100 active:scale-95"
+                  className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs tracking-widest"
                 >
-                  削除
+                  {t.delete}
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] bg-slate-900 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-slate-800 active:scale-95 transition-all"
+                  className="flex-[2] bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-slate-800 active:scale-95 transition-all uppercase text-xs tracking-widest"
                 >
-                  保存
+                  {t.save}
                 </button>
               </div>
             </form>
@@ -1343,10 +1459,12 @@ function App() {
       )}
 
       {isProcessing && (
-        <div className="fixed inset-0 bg-white/40 backdrop-blur-[2px] z-[100] flex items-center justify-center cursor-wait transition-all">
-          <div className="bg-slate-800 text-white px-8 py-4 rounded-3xl font-black shadow-2xl animate-bounce flex items-center gap-3">
-            <span className="w-3 h-3 bg-blue-400 rounded-full animate-ping"></span>
-            PROCESSING...
+        <div className="fixed inset-0 bg-white/40 backdrop-blur-[4px] z-[100] flex items-center justify-center transition-all duration-500">
+          <div className="bg-slate-900 text-white px-10 py-6 rounded-[32px] font-black shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] animate-bounce flex items-center gap-4 border-2 border-white/20">
+            <span className="w-4 h-4 bg-blue-500 rounded-full animate-ping"></span>
+            <span className="uppercase tracking-[0.3em] text-sm">
+              {t.processing}
+            </span>
           </div>
         </div>
       )}
