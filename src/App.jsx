@@ -13,7 +13,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 
-// --- 🌐 多言語辞書 (EN/JA) ---
+// --- 🌐 多言語辞書 ---
 const translations = {
   en: {
     week: 'Week',
@@ -24,8 +24,8 @@ const translations = {
     clear: 'Clear Week',
     target: 'Target',
     over: 'OVER',
-    met: 'MET', // ちょうど達成
-    room: 'AVAIL', // 余裕あり (NEW!)
+    met: 'MET',
+    room: 'ROOM',
     time: 'Time',
     addShift: 'Add Shift',
     editShift: 'Edit Shift',
@@ -43,6 +43,7 @@ const translations = {
     confirmDelete: 'Delete this shift?',
     confirmClear: 'Clear all data for this week?',
     confirmStaffDelete: 'Delete this staff member?',
+    doubleClickHint: 'Double-click to add',
   },
   ja: {
     week: '週',
@@ -53,8 +54,8 @@ const translations = {
     clear: 'クリア',
     target: '目標',
     over: '超過',
-    met: '達成', // ちょうど達成
-    room: '追加可能', // 余裕あり (NEW!)
+    met: '達成',
+    room: '余裕',
     time: '時間',
     addShift: 'シフト追加',
     editShift: 'シフト編集',
@@ -72,6 +73,7 @@ const translations = {
     confirmDelete: 'このシフトを削除しますか？',
     confirmClear: '今週のデータを全削除しますか？',
     confirmStaffDelete: 'このスタッフを削除しますか？',
+    doubleClickHint: 'ダブルクリックで追加',
   },
 };
 
@@ -84,6 +86,7 @@ for (let h = 9; h <= 23; h++) {
 }
 
 const ROW_HEIGHT = 36;
+const DRAG_THRESHOLD = 5; // 5px動かない限りドラッグを開始しない
 
 // --- 🌟 ヘルパー関数 ---
 const getColumnLetter = (colIndex) => {
@@ -146,7 +149,6 @@ const getWeekDisplayVerbose = (weekId, lang = 'en') => {
   else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
   const end = new Date(ISOweekStart);
   end.setDate(ISOweekStart.getDate() + 6);
-
   const options = { month: 'short', day: 'numeric' };
   return `${ISOweekStart.toLocaleDateString(
     lang === 'en' ? 'en-CA' : 'ja-JP',
@@ -196,6 +198,9 @@ function App() {
   const [staffEditData, setStaffEditData] = useState({});
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
 
+  // ドラッグの「遊び」を判定するための座標保存用
+  const [isActuallyDragging, setIsActuallyDragging] = useState(false);
+
   useEffect(() => {
     localStorage.setItem('appLang', lang);
   }, [lang]);
@@ -213,17 +218,12 @@ function App() {
     const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
     const snapshot = await getDocs(q);
     const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-
     if (list.length === 0 && !hasInitialized.current) {
       hasInitialized.current = true;
       const initial = [
         { name: 'KANA', color: '#bae6fd', target: 39, order: 0 },
         { name: 'RYUSHIN', color: '#bbf7d0', target: 38, order: 1 },
         { name: 'SAYAKA', color: '#e9d5ff', target: 24, order: 2 },
-        { name: 'EITO', color: '#fecdd3', target: 24, order: 3 },
-        { name: 'KEITO', color: '#e2e8f0', target: 24, order: 4 },
-        { name: 'DAISUKE', color: '#bfdbfe', target: 24, order: 5 },
-        { name: 'AIRA', color: '#fed7aa', target: 24, order: 6 },
       ];
       const batch = writeBatch(db);
       initial.forEach((s) => batch.set(doc(collection(db, 'staffs')), s));
@@ -256,9 +256,7 @@ function App() {
     setWeekId(getCurrentWeekId(date));
   };
 
-  const jumpToToday = () => {
-    setWeekId(getCurrentWeekId());
-  };
+  const jumpToToday = () => setWeekId(getCurrentWeekId());
 
   const handleSyncToGAS = async () => {
     if (isProcessing) return;
@@ -271,10 +269,8 @@ function App() {
       !window.confirm(`${t.confirmSync} ${getWeekDisplayVerbose(weekId, lang)}`)
     )
       return;
-
     setIsProcessing(true);
     setShowMenu(false);
-
     try {
       let processedShifts = [...shifts].sort(
         (a, b) => timeToMins(a.startTime) - timeToMins(b.startTime)
@@ -285,7 +281,6 @@ function App() {
         if (!groups[key]) groups[key] = [];
         groups[key].push({ ...s, drawEndTime: s.endTime });
       });
-
       for (let key in groups) {
         let ls = groups[key];
         for (let i = 0; i < ls.length - 1; i++) {
@@ -294,7 +289,6 @@ function App() {
           }
         }
       }
-
       const scheduleCommands = [];
       Object.values(groups)
         .flat()
@@ -313,8 +307,8 @@ function App() {
             eR = Math.min(eR, 29);
           }
           if (sR > 40 || sR < 5 || eR < sR) return;
-          const startStr = formatTime12(s.startTime);
-          const endStr = formatTime12(s.endTime);
+          const startStr = formatTime12(s.startTime),
+            endStr = formatTime12(s.endTime);
           const timeLabel =
             (startStr + '-' + endStr).length >= 9
               ? `${startStr}-\n${endStr}`
@@ -332,22 +326,17 @@ function App() {
             color: s.color,
           });
         });
-
       const dashboardRows = staffs.map((staff) => {
         const total = shifts
           .filter((s) => s.staffName === staff.name)
           .reduce((acc, s) => acc + s.totalHours, 0);
-        const current = Math.floor(total * 100) / 100;
-        const rem = Math.floor((staff.target - current) * 100) / 100;
-
-        // 3段階評価のステータス
+        const current = Math.floor(total * 100) / 100,
+          rem = Math.floor((staff.target - current) * 100) / 100;
         let statusLabel = t.met;
         if (rem < 0) statusLabel = `⚠️ ${t.over}`;
         else if (rem > 0) statusLabel = t.room;
-
         return [staff.name, current, staff.target, '', rem, statusLabel];
       });
-
       const payload = {
         weekId,
         weekLabel: getWeekDisplayVerbose(weekId, lang),
@@ -390,7 +379,6 @@ function App() {
     const batch = writeBatch(db);
     newStaffs.forEach((s, i) => {
       batch.update(doc(db, 'staffs', s.id), { order: i });
-      s.order = i;
     });
     try {
       await batch.commit();
@@ -401,22 +389,12 @@ function App() {
     setIsProcessing(false);
   };
 
-  const handleStartEditStaff = (staff) => {
-    setEditingStaffId(staff.id);
-    setStaffEditData({
-      name: staff.name,
-      target: staff.target,
-      color: staff.color,
-    });
-  };
-
   const handleUpdateStaff = async (staffId) => {
     if (isProcessing) return;
     setIsProcessing(true);
     try {
       const oldStaff = staffs.find((s) => s.id === staffId);
       await updateDoc(doc(db, 'staffs', staffId), staffEditData);
-
       if (
         oldStaff.name !== staffEditData.name ||
         oldStaff.color !== staffEditData.color
@@ -449,7 +427,6 @@ function App() {
       setStaffs((prev) =>
         prev.map((s) => (s.id === staffId ? { ...s, ...staffEditData } : s))
       );
-      if (selectedStaff === oldStaff.name) setSelectedStaff(staffEditData.name);
       setEditingStaffId(null);
     } catch (e) {
       console.error(e);
@@ -467,14 +444,13 @@ function App() {
         editingShift.endTime,
         editingShift.breakHours
       );
-      const { id, ...dataToSave } = editingShift;
-      await updateDoc(doc(db, 'shifts', id), {
-        ...dataToSave,
+      await updateDoc(doc(db, 'shifts', editingShift.id), {
+        ...editingShift,
         totalHours: total,
       });
       setShifts((prev) =>
         prev.map((s) =>
-          s.id === id ? { ...editingShift, totalHours: total } : s
+          s.id === editingShift.id ? { ...editingShift, totalHours: total } : s
         )
       );
       setEditingShift(null);
@@ -504,11 +480,13 @@ function App() {
       id: shift.id,
       type,
       startY: e.clientY,
+      startX: e.clientX, // Xも保存してしきい値判定に使う
       initStartMins: timeToMins(shift.startTime),
       initEndMins: timeToMins(shift.endTime),
       initDay: shift.day,
       initLane: shift.lane,
     });
+    setIsActuallyDragging(false); // 初期化
     e.target.setPointerCapture(e.pointerId);
   };
 
@@ -516,6 +494,17 @@ function App() {
     (e) => {
       if (!dragInfo) return;
       const deltaY = e.clientY - dragInfo.startY;
+      const deltaX = e.clientX - dragInfo.startX;
+
+      // しきい値を超えない限り何もしない（遊びを作る）
+      if (
+        !isActuallyDragging &&
+        (Math.abs(deltaY) > DRAG_THRESHOLD || Math.abs(deltaX) > DRAG_THRESHOLD)
+      ) {
+        setIsActuallyDragging(true);
+      }
+      if (!isActuallyDragging) return;
+
       const deltaMins = Math.round(((deltaY / ROW_HEIGHT) * 30) / 5) * 5;
       const targetTd = document
         .elementsFromPoint(e.clientX, e.clientY)
@@ -556,21 +545,23 @@ function App() {
         })
       );
     },
-    [dragInfo]
+    [dragInfo, isActuallyDragging]
   );
 
   const handlePointerUp = useCallback(
     async (e) => {
       if (!dragInfo) return;
       e.target.releasePointerCapture(e.pointerId);
-      const updated = shifts.find((s) => s.id === dragInfo.id);
-      if (updated) {
-        const { id, ...dataToSave } = updated;
-        await updateDoc(doc(db, 'shifts', id), dataToSave);
+      if (isActuallyDragging) {
+        const updated = shifts.find((s) => s.id === dragInfo.id);
+        if (updated) {
+          await updateDoc(doc(db, 'shifts', updated.id), updated);
+        }
       }
       setDragInfo(null);
+      setIsActuallyDragging(false);
     },
-    [dragInfo, shifts]
+    [dragInfo, shifts, isActuallyDragging]
   );
 
   useEffect(() => {
@@ -657,7 +648,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+      {/* メインヘッダー: sticky top-0 */}
+      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px]">
         <div className="flex items-center gap-3 md:gap-5 min-w-fit">
           <div className="flex flex-col">
             <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-none">
@@ -667,7 +659,6 @@ function App() {
               {getWeekDisplayVerbose(weekId, lang)}
             </span>
           </div>
-
           <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
             <button
               onClick={() => changeWeek(-1)}
@@ -711,7 +702,6 @@ function App() {
           >
             {lang}
           </button>
-
           <div className="md:hidden flex-1 max-w-[120px]">
             <select
               value={selectedStaff}
@@ -725,7 +715,6 @@ function App() {
               ))}
             </select>
           </div>
-
           <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar px-2 border-r border-slate-100 mr-2 pr-2 py-2">
             {staffs.map((s) => (
               <button
@@ -743,7 +732,6 @@ function App() {
               </button>
             ))}
           </div>
-
           <div className="relative flex-shrink-0" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -812,7 +800,6 @@ function App() {
                 <span className="text-xs font-black text-slate-600 group-hover:text-blue-600 transition-colors uppercase">
                   {d.name}
                 </span>
-                {/* 3段階評価のバッジデザイン */}
                 <span
                   className={`text-[9px] px-2 py-0.5 rounded-full font-black transition-all ${
                     d.remaining < 0
@@ -854,26 +841,30 @@ function App() {
           ))}
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-8 border-t-slate-900">
-          <div className="overflow-x-auto">
+        {/* シフトエリアコンテナ: スクロールバーのカスタマイズ */}
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-8 border-t-slate-900 custom-scrollbar">
+          <div className="overflow-x-auto overflow-y-visible">
             <table className="w-full border-collapse table-fixed min-w-[1400px] select-none">
-              <thead className="sticky top-0 z-30">
-                <tr className="bg-white">
-                  <th className="w-16 border-b border-r-2 border-slate-200 bg-white sticky left-0 z-40 p-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+              <thead className="sticky z-40" style={{ top: '0' }}>
+                {' '}
+                {/* JS側で top 位置をヘッダー高さに合わせるか、CSSクラスで指定 */}
+                <tr className="bg-white shadow-sm">
+                  {/* Time列のヘッダー: 2重sticky */}
+                  <th className="w-16 border-b border-r-2 border-slate-200 bg-white sticky left-0 top-0 z-50 p-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter h-12">
                     {t.time}
                   </th>
                   {DAYS.map((day) => (
                     <th
                       key={day}
                       colSpan={4}
-                      className="border-b border-r-2 border-slate-200 bg-white p-3 text-center font-black text-slate-800 tracking-widest text-sm"
+                      className="border-b border-r-2 border-slate-200 bg-white p-3 text-center font-black text-slate-800 tracking-widest text-sm sticky top-0 z-30"
                     >
                       {day}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="relative">
                 {TIMES.map((time) => (
                   <tr key={time} className="h-9 group">
                     <td className="border-b border-r-2 border-slate-200 text-center text-[11px] font-black text-slate-400 bg-white sticky left-0 z-20 group-hover:bg-slate-50 transition-colors uppercase">
@@ -899,7 +890,9 @@ function App() {
                             key={`${day}-${time}-${lane}`}
                             data-day={day}
                             data-lane={lane}
-                            onClick={() => handleAddShift(day, time, lane)}
+                            onDoubleClick={() =>
+                              handleAddShift(day, time, lane)
+                            } // ダブルクリックに変更
                             className={`border-b ${
                               time.endsWith(':30')
                                 ? 'border-slate-100'
@@ -909,6 +902,7 @@ function App() {
                                 ? 'border-r-2 border-r-slate-200'
                                 : 'border-r border-slate-50'
                             } p-0 hover:bg-blue-50/50 cursor-crosshair relative transition-colors duration-100`}
+                            title={t.doubleClickHint}
                           >
                             {cellShifts.map((shift) => (
                               <div
@@ -921,7 +915,8 @@ function App() {
                                   handlePointerDownShift(e, shift, 'move')
                                 }
                                 className={`absolute inset-x-1 rounded-lg p-2 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/10 z-10 cursor-grab active:cursor-grabbing transition-shadow ${
-                                  dragInfo?.id === shift.id
+                                  dragInfo?.id === shift.id &&
+                                  isActuallyDragging
                                     ? 'z-50 opacity-90 scale-[1.02] shadow-2xl ring-2 ring-blue-500'
                                     : ''
                                 }`}
@@ -985,10 +980,10 @@ function App() {
         </div>
       </div>
 
-      {/* モーダル: スタッフ詳細ポップアップ */}
+      {/* --- モーダル類 (以前と同様のため構造維持) --- */}
       {viewingStaffDetail && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
           onClick={() => setViewingStaffDetail(null)}
         >
           <div
@@ -1000,7 +995,7 @@ function App() {
               style={{ borderTop: `12px solid ${viewingStaffDetail.color}` }}
             >
               <div>
-                <h2 className="text-3xl font-black text-slate-800 leading-none uppercase">
+                <h2 className="text-3xl font-black text-slate-800 uppercase leading-none tracking-tight">
                   {viewingStaffDetail.name}
                 </h2>
                 <p className="text-[10px] font-black text-slate-400 mt-2 uppercase tracking-[0.2em]">
@@ -1081,10 +1076,9 @@ function App() {
         </div>
       )}
 
-      {/* モーダル: スタッフ管理 */}
       {showStaffModal && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
           onClick={() => {
             if (!isProcessing) setShowStaffModal(false);
           }}
@@ -1309,60 +1303,9 @@ function App() {
         </div>
       )}
 
-      {/* モーダル: コピー */}
-      {showCopyModal && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
-          onClick={() => setShowCopyModal(false)}
-        >
-          <div
-            className="bg-white rounded-[40px] p-10 w-full max-w-sm shadow-2xl border-t-[12px] border-t-indigo-600"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-2xl font-black mb-8 text-center uppercase tracking-tight">
-              {t.copy}
-            </h2>
-            <div className="relative mb-10">
-              <select
-                className="w-full bg-slate-100 border-none rounded-2xl px-6 py-5 font-black text-center appearance-none cursor-pointer focus:ring-2 focus:ring-indigo-500 transition-all"
-                value={selectedCopyWeek}
-                onChange={(e) => setSelectedCopyWeek(e.target.value)}
-              >
-                {availableWeeks.map((w) => (
-                  <option key={w} value={w}>
-                    {getWeekDisplayVerbose(w, lang)}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
-                ▼
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={async () => {
-                  await executeCopy();
-                  setShowCopyModal(false);
-                }}
-                className="w-full bg-indigo-600 text-white font-black py-5 rounded-[24px] shadow-2xl active:scale-95 transition-all uppercase tracking-widest text-sm"
-              >
-                Execute Copy
-              </button>
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="w-full py-4 font-black text-slate-400 uppercase text-xs tracking-widest"
-              >
-                {t.cancel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* モーダル: シフト編集 */}
       {editingShift && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
           onClick={() => setEditingShift(null)}
         >
           <div
@@ -1378,7 +1321,7 @@ function App() {
                 <h2 className="text-3xl font-black text-slate-800 uppercase leading-none tracking-tight">
                   {editingShift.staffName}
                 </h2>
-                <p className="text-[10px] font-black text-slate-400 uppercase mt-1 tracking-widest">
+                <p className="text-[10px] font-black text-slate-400 mt-1 tracking-widest">
                   {t.editShift}
                 </p>
               </div>
@@ -1473,6 +1416,21 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* グローバルスタイル: カスタムスクロールバーとスティッキー調整 */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        .custom-scrollbar::-webkit-scrollbar { height: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* 曜日ヘッダーをメインヘッダー(72px)の下に固定 */
+        thead.sticky { top: 72px !important; }
+      `,
+        }}
+      />
     </div>
   );
 }
