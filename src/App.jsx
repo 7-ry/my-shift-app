@@ -654,6 +654,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
+      {' '}
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px]">
         <div className="flex items-center gap-3 md:gap-5 min-w-fit">
           <div className="flex flex-col">
@@ -791,9 +792,9 @@ function App() {
           </div>
         </div>
       </header>
-
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4 mb-6">
+          {' '}
           {dashboardData.map((d) => (
             <div
               key={d.id}
@@ -989,7 +990,6 @@ function App() {
           </div>
         </div>
       </div>
-
       {/* --- モーダル類 --- */}
       {viewingStaffDetail && (
         <div
@@ -1085,7 +1085,6 @@ function App() {
           </div>
         </div>
       )}
-
       {showStaffModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
@@ -1312,7 +1311,6 @@ function App() {
           </div>
         </div>
       )}
-
       {editingShift && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
@@ -1415,7 +1413,6 @@ function App() {
           </div>
         </div>
       )}
-
       {isProcessing && (
         <div className="fixed inset-0 bg-white/40 backdrop-blur-[4px] z-[100] flex items-center justify-center transition-all duration-500">
           <div className="bg-slate-900 text-white px-10 py-6 rounded-[32px] font-black shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] animate-bounce flex items-center gap-4 border-2 border-white/20">
@@ -1426,10 +1423,15 @@ function App() {
           </div>
         </div>
       )}
-
       <style
         dangerouslySetInnerHTML={{
           __html: `
+          body {
+            margin: 0;
+            overflow-x: hidden; /* rootではなくbodyにかけるのが鉄則です */
+            width: 100%;
+            position: relative;
+          }
         .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 3px solid white; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
