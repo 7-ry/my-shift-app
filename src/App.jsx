@@ -50,6 +50,7 @@ const translations = {
     confirmClear: 'Clear all data for this week?',
     confirmStaffDelete: 'Delete this staff member?',
     doubleClickHint: 'Double-click to add',
+    logout: 'Logout',
   },
   ja: {
     week: '週',
@@ -80,6 +81,7 @@ const translations = {
     confirmClear: '今週のデータを全削除しますか？',
     confirmStaffDelete: 'このスタッフを削除しますか？',
     doubleClickHint: 'ダブルクリックで追加',
+    logout: 'ログアウト',
   },
 };
 
@@ -876,7 +878,7 @@ function App() {
                 >
                   🔄 {t.sync}
                 </button>
-                <div className="h-px bg-slate-100 my-1"></div>
+                <div className="h-px bg-slate-300 my-1"></div>
                 <button
                   onClick={() => {
                     fetchAvailableWeeks();
@@ -887,6 +889,7 @@ function App() {
                 >
                   📋 {t.copy}
                 </button>
+                <div className="h-px bg-slate-300 my-1"></div>
                 <button
                   onClick={() => {
                     setShowStaffModal(true);
@@ -896,7 +899,7 @@ function App() {
                 >
                   👥 {t.manage}
                 </button>
-                <div className="h-px bg-slate-100 my-1"></div>
+                <div className="h-px bg-slate-300 my-1"></div>
                 <button
                   onClick={async () => {
                     if (window.confirm(t.confirmClear)) {
@@ -911,13 +914,14 @@ function App() {
                 >
                   🗑️ {t.clear}
                 </button>
+                <div className="h-px bg-slate-300 my-1"></div>
 
                 {/* ★ログアウトボタンを追加 */}
                 <button
                   onClick={handleLogout}
                   className="w-full text-left px-4 py-3 text-sm font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
                 >
-                  🚪 Logout
+                  🚪 {t.logout}
                 </button>
               </div>
             )}
