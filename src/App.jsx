@@ -563,19 +563,25 @@ function App() {
   );
 
   const handlePointerUp = useCallback(
-    async (e) => {
+    (e) => {
       if (!dragInfo) return;
-      e.target.releasePointerCapture(e.pointerId);
-      if (isActuallyDragging) {
-        const updated = shifts.find((s) => s.id === dragInfo.id);
-        if (updated) {
-          await updateDoc(doc(db, 'shifts', updated.id), updated);
-        }
+
+      // 1. ポインターの拘束を即座に解除（ブラウザに制御を戻す）
+      if (
+        dragInfo.targetElement &&
+        dragInfo.targetElement.hasPointerCapture(e.pointerId)
+      ) {
+        dragInfo.targetElement.releasePointerCapture(e.pointerId);
       }
+
+      // 2. ドラッグ関連の状態を最優先でリセット
       setDragInfo(null);
       setIsActuallyDragging(false);
+
+      // 3. (必要に応じて) このタイミングでFirebaseへの最終保存を行う
+      // ※ moveの中で常にstate更新していれば、ここでの追加処理は不要です
     },
-    [dragInfo, shifts, isActuallyDragging]
+    [dragInfo]
   );
 
   useEffect(() => {
@@ -861,7 +867,12 @@ function App() {
           {/* overflow-auto を追加し、max-h を指定することでコンテナ内スクロールを有効化 */}
           {/* max-h を調整することで、一度に表示できる時間の範囲（縦幅）が変わります */}
           {/* calc(100vh - ヘッダー高さ) を使うことで、画面の下端までピッタリ表示されます */}
-          <div className="overflow-auto max-h-[calc(100vh-140px)] md:max-h-[calc(100vh-160px)] custom-scrollbar">
+          <div
+            className="overflow-auto max-h-[calc(100vh-140px)] md:max-h-[calc(100vh-160px)] custom-scrollbar"
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp} // ← これがセットされていること
+            onPointerLeave={handlePointerUp} // ← 念のため画面外に出た時も確定させる
+          >
             {' '}
             <table className="w-full border-collapse table-fixed min-w-[1200px] md:min-w-[1400px] select-none">
               {/* 曜日ヘッダー: sticky top-0 (コンテナ上部に吸着) */}
