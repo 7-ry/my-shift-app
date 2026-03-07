@@ -86,7 +86,7 @@ for (let h = 9; h <= 23; h++) {
 }
 
 const ROW_HEIGHT = 36;
-const DRAG_THRESHOLD = 5;
+const DRAG_THRESHOLD = 20;
 
 // --- 🌟 ヘルパー関数 ---
 const getColumnLetter = (colIndex) => {
@@ -504,13 +504,21 @@ function App() {
       if (!dragInfo) return;
       const deltaY = e.clientY - dragInfo.startY;
       const deltaX = e.clientX - dragInfo.startX;
-      if (
-        !isActuallyDragging &&
-        (Math.abs(deltaY) > DRAG_THRESHOLD || Math.abs(deltaX) > DRAG_THRESHOLD)
-      ) {
-        setIsActuallyDragging(true);
+
+      // 距離の計算 (三平方の定理)
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      if (!isActuallyDragging) {
+        if (distance > DRAG_THRESHOLD) {
+          setIsActuallyDragging(true);
+          // ドラッグ確定の瞬間のみ、ポインターを拘束する
+          if (dragInfo.targetElement) {
+            dragInfo.targetElement.setPointerCapture(e.pointerId);
+          }
+        } else {
+          return; // しきい値以下なら何もしない（スクロールを優先させる）
+        }
       }
-      if (!isActuallyDragging) return;
       const deltaMins = Math.round(((deltaY / ROW_HEIGHT) * 30) / 5) * 5;
       const targetTd = document
         .elementsFromPoint(e.clientX, e.clientY)
