@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
   collection,
   addDoc,
@@ -11,7 +11,13 @@ import {
   where,
   writeBatch,
   orderBy,
+  getFirestore,
 } from 'firebase/firestore';
+import {
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+} from 'firebase/auth';
 
 // --- 🌐 多言語辞書 ---
 const translations = {
@@ -187,6 +193,8 @@ function App() {
   const [staffs, setStaffs] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [shifts, setShifts] = useState([]);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [editingShift, setEditingShift] = useState(null);
   const [dragInfo, setDragInfo] = useState(null);
   const [weekId, setWeekId] = useState(
@@ -209,6 +217,53 @@ function App() {
   const [staffEditData, setStaffEditData] = useState({});
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [isActuallyDragging, setIsActuallyDragging] = useState(false);
+  const [loginId, setLoginId] = useState('');
+  const [loginPw, setLoginPw] = useState('');
+
+  // 認証状態の監視（ブラウザを閉じてもログインを維持するための処理）
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false); // 状態の確認が終わったらロード終了
+    });
+    return unsubscribe;
+  }, []);
+
+  // 合言葉による共通ログイン
+  const handleSecretLogin = async () => {
+    // 環境変数から期待値をロード
+    const targetId = import.meta.env.VITE_UI_USERID;
+    const targetPw = import.meta.env.VITE_UI_PASSCODE;
+    const fbAdminEmail = import.meta.env.VITE_FB_ADMIN_EMAIL;
+    const fbAdminPass = import.meta.env.VITE_FB_ADMIN_PASS;
+
+    // 1. UI入力値と環境変数の照合
+    if (loginPw === targetPw) {
+      try {
+        // 2. 照合成功時のみ、裏側でFirebaseの共通アカウントでサインイン
+        await signInWithEmailAndPassword(auth, fbAdminEmail, fbAdminPass);
+      } catch (error) {
+        console.error('Firebase Auth Error:', error.code);
+        alert(
+          'システム認証エラーが発生しました。Firebaseコンソールの設定を確認してください。'
+        );
+      }
+    } else {
+      alert('ユーザー名またはパスワードが正しくありません。');
+    }
+  };
+
+  const handleLogout = async () => {
+    if (window.confirm('ログアウトしますか？')) {
+      try {
+        await signOut(auth);
+        // signOut が成功すると onAuthStateChanged が検知して
+        // 自動的に user が null になり、ログイン画面に戻ります。
+      } catch (error) {
+        console.error('Logout Error:', error);
+      }
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('appLang', lang);
@@ -666,6 +721,52 @@ function App() {
     };
   });
 
+  // 1. セッション確認中のローディング
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="font-black text-slate-400 text-xs tracking-widest uppercase">
+            Checking Access...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. 未ログイン時の壁（ログインページ）
+  if (!user) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6">
+        <div className="w-full max-w-sm space-y-8">
+          <div className="text-center">
+            <h1 className="text-4xl font-black tracking-tighter mb-2">SAKU</h1>
+            <p className="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px]">
+              Staff Only Portal
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <input
+              type="password"
+              autoFocus
+              value={loginPw}
+              placeholder="ENTER PASSCODE"
+              className="w-full bg-slate-800 border-none rounded-3xl py-5 px-6 text-center text-2xl font-black tracking-[0.4em] focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-700 placeholder:tracking-normal"
+              onChange={(e) => setLoginPw(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSecretLogin();
+              }}
+            />
+            <p className="text-center text-[10px] text-slate-600 font-black uppercase animate-pulse">
+              Press Enter to Login
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
       {' '}
@@ -800,6 +901,14 @@ function App() {
                   className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
                 >
                   🗑️ {t.clear}
+                </button>
+
+                {/* ★ログアウトボタンを追加 */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-3 text-sm font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
+                >
+                  🚪 Logout
                 </button>
               </div>
             )}
