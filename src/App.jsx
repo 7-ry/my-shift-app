@@ -498,6 +498,15 @@ function App() {
     setIsProcessing(false);
   };
 
+  const handleStartEditStaff = (staff) => {
+    setEditingStaffId(staff.id);
+    setStaffEditData({
+      name: staff.name,
+      color: staff.color,
+      target: staff.target,
+    });
+  };
+
   const handleUpdateShift = async (e) => {
     if (e) e.preventDefault();
     if (!editingShift || isProcessing) return;
