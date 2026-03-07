@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAnalytics } from 'firebase/analytics';
 import { getFirestore } from 'firebase/firestore'; // ←★この1行を追加しました！
+import { getAuth } from 'firebase/auth'; // ★追加
 
 // Your web app's Firebase configuration
 // src/firebase.js
@@ -20,3 +21,4 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 export const db = getFirestore(app); // ←ここで使っているので、上のimportが必須でした
+export const auth = getAuth(app); // ★これをexportに追加
