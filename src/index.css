@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: 15 23 42; /* Slate-900 (Header/Text) */
+    --color-accent: 37 99 235; /* Blue-600 (Buttons/Icons) */
+    --color-bg: 248 250 252; /* Slate-50 (Background) */
+  }
+}

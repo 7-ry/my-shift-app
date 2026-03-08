@@ -19,6 +19,11 @@ import {
   signOut,
 } from 'firebase/auth';
 
+// components import
+import Header from './components/Header';
+import Dashboard from './components/Dashboard';
+import ShiftTable from './components/ShiftTable';
+
 // --- 🌐 多言語辞書 ---
 const translations = {
   en: {
@@ -549,8 +554,10 @@ function App() {
     setIsProcessing(false);
   };
 
+  // 1. ドラッグ開始：要素の保存と拘束
   const handlePointerDownShift = (e, shift, type) => {
     e.stopPropagation();
+    const currentTarget = e.currentTarget; // ★要素を取得
     setDragInfo({
       id: shift.id,
       type,
@@ -560,35 +567,33 @@ function App() {
       initEndMins: timeToMins(shift.endTime),
       initDay: shift.day,
       initLane: shift.lane,
+      targetElement: currentTarget, // ★dragInfoに要素を保存
     });
     setIsActuallyDragging(false);
-    e.target.setPointerCapture(e.pointerId);
+    currentTarget.setPointerCapture(e.pointerId); // ★この要素にポインターを拘束
   };
 
+  // 2. ドラッグ中：UIの即時更新
   const handlePointerMove = useCallback(
     (e) => {
       if (!dragInfo) return;
       const deltaY = e.clientY - dragInfo.startY;
       const deltaX = e.clientX - dragInfo.startX;
-
-      // 距離の計算 (三平方の定理)
       const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
       if (!isActuallyDragging) {
         if (distance > DRAG_THRESHOLD) {
           setIsActuallyDragging(true);
-          // ドラッグ確定の瞬間のみ、ポインターを拘束する
-          if (dragInfo.targetElement) {
-            dragInfo.targetElement.setPointerCapture(e.pointerId);
-          }
         } else {
-          return; // しきい値以下なら何もしない（スクロールを優先させる）
+          return;
         }
       }
+
       const deltaMins = Math.round(((deltaY / ROW_HEIGHT) * 30) / 5) * 5;
       const targetTd = document
         .elementsFromPoint(e.clientX, e.clientY)
         .find((el) => el.tagName === 'TD' && el.dataset.day);
+
       setShifts((prev) =>
         prev.map((s) => {
           if (s.id !== dragInfo.id) return s;
@@ -628,11 +633,12 @@ function App() {
     [dragInfo, isActuallyDragging]
   );
 
+  // 3. ドラッグ終了：Firebaseへの保存 (★重要)
   const handlePointerUp = useCallback(
-    (e) => {
+    async (e) => {
       if (!dragInfo) return;
 
-      // 1. ポインターの拘束を即座に解除（ブラウザに制御を戻す）
+      // ポインターの拘束を解除
       if (
         dragInfo.targetElement &&
         dragInfo.targetElement.hasPointerCapture(e.pointerId)
@@ -640,14 +646,33 @@ function App() {
         dragInfo.targetElement.releasePointerCapture(e.pointerId);
       }
 
-      // 2. ドラッグ関連の状態を最優先でリセット
+      // ドラッグ終了時の最新データを取得
+      const draggedId = dragInfo.id;
+      const finalShift = shifts.find((s) => s.id === draggedId);
+      const wasDragging = isActuallyDragging;
+
+      // 状態をリセット
       setDragInfo(null);
       setIsActuallyDragging(false);
 
-      // 3. (必要に応じて) このタイミングでFirebaseへの最終保存を行う
-      // ※ moveの中で常にstate更新していれば、ここでの追加処理は不要です
+      // ★実際に移動が行われていた場合のみFirebaseを更新
+      if (wasDragging && finalShift) {
+        try {
+          const shiftRef = doc(db, 'shifts', draggedId);
+          await updateDoc(shiftRef, {
+            startTime: finalShift.startTime,
+            endTime: finalShift.endTime,
+            day: finalShift.day,
+            lane: finalShift.lane,
+            totalHours: finalShift.totalHours,
+          });
+          console.log('Firebase synced: ', finalShift.staffName);
+        } catch (error) {
+          console.error('Firebase update failed:', error);
+        }
+      }
     },
-    [dragInfo]
+    [dragInfo, isActuallyDragging, shifts] // ★最新のshiftsを参照するために依存関係に追加
   );
 
   useEffect(() => {
@@ -781,355 +806,55 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
       {' '}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px]">
-        <div className="flex items-center gap-3 md:gap-5 min-w-fit">
-          <div className="flex flex-col">
-            <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800 leading-none">
-              Saku Burquitlam
-            </h1>
-            <span className="text-[10px] font-bold text-blue-600 uppercase mt-1 tracking-wider">
-              {getWeekDisplayVerbose(weekId, lang)}
-            </span>
-          </div>
-          <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
-            <button
-              onClick={() => changeWeek(-1)}
-              className="w-8 h-8 flex items-center justify-center hover:bg-white rounded-lg transition-all text-sm"
-            >
-              ◀
-            </button>
-            <div className="relative group">
-              <input
-                type="week"
-                value={weekId}
-                onChange={(e) => setWeekId(e.target.value)}
-                className="bg-transparent border-none text-xs font-black w-32 cursor-pointer text-center focus:ring-0"
-              />
-              <div className="absolute inset-0 pointer-events-none bg-transparent group-hover:bg-black/5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] bg-slate-800 text-white px-1.5 rounded uppercase">
-                  {t.week}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => changeWeek(1)}
-              className="w-8 h-8 flex items-center justify-center hover:bg-white rounded-lg transition-all text-sm"
-            >
-              ▶
-            </button>
-            <div className="w-px h-4 bg-slate-300 mx-1"></div>
-            <button
-              onClick={jumpToToday}
-              className="px-3 py-1 text-[10px] font-black uppercase hover:bg-white rounded-lg transition-all"
-            >
-              {t.today}
-            </button>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          <button
-            onClick={() => setLang(lang === 'en' ? 'ja' : 'en')}
-            className="w-10 h-10 flex items-center justify-center text-xs font-black border-2 border-slate-200 rounded-full hover:bg-slate-100 transition-all uppercase"
-          >
-            {lang}
-          </button>
-          <div className="md:hidden flex-1 max-w-[120px]">
-            <select
-              value={selectedStaff}
-              onChange={(e) => setSelectedStaff(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none"
-            >
-              {staffs.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar px-2 border-r border-slate-100 mr-2 pr-2 py-2">
-            {staffs.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedStaff(s.name)}
-                style={{ backgroundColor: s.color }}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-bold transition-all ${
-                  selectedStaff === s.name
-                    ? 'ring-2 ring-slate-800 shadow-md scale-105'
-                    : 'opacity-60 hover:opacity-100'
-                }`}
-              >
-                {' '}
-                {s.name}{' '}
-              </button>
-            ))}
-          </div>
-          <div className="relative flex-shrink-0" ref={menuRef}>
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="w-10 h-10 flex items-center justify-center bg-slate-900 text-white rounded-full hover:bg-slate-800 text-xl transition-all shadow-lg active:scale-90"
-            >
-              ⚙️
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in slide-in-from-top-2">
-                <button
-                  onClick={handleSyncToGAS}
-                  className="w-full text-left px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-3"
-                >
-                  🔄 {t.sync}
-                </button>
-                <div className="h-px bg-slate-300 my-1"></div>
-                <button
-                  onClick={() => {
-                    fetchAvailableWeeks();
-                    setShowCopyModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
-                >
-                  📋 {t.copy}
-                </button>
-                <div className="h-px bg-slate-300 my-1"></div>
-                <button
-                  onClick={() => {
-                    setShowStaffModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
-                >
-                  👥 {t.manage}
-                </button>
-                <div className="h-px bg-slate-300 my-1"></div>
-                <button
-                  onClick={async () => {
-                    if (window.confirm(t.confirmClear)) {
-                      setShowMenu(false);
-                      const b = writeBatch(db);
-                      shifts.forEach((s) => b.delete(doc(db, 'shifts', s.id)));
-                      await b.commit();
-                      setShifts([]);
-                    }
-                  }}
-                  className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
-                >
-                  🗑️ {t.clear}
-                </button>
-                <div className="h-px bg-slate-300 my-1"></div>
-
-                {/* ★ログアウトボタンを追加 */}
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-4 py-3 text-sm font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
-                >
-                  🚪 {t.logout}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Header */}
+      <Header
+        lang={lang}
+        setLang={setLang}
+        weekId={weekId}
+        setWeekId={setWeekId}
+        changeWeek={changeWeek}
+        jumpToToday={jumpToToday}
+        getWeekDisplayVerbose={getWeekDisplayVerbose}
+        t={t}
+        staffs={staffs}
+        selectedStaff={selectedStaff}
+        setSelectedStaff={setSelectedStaff}
+        showMenu={showMenu}
+        setShowMenu={setShowMenu}
+        handleSyncToGAS={handleSyncToGAS}
+        fetchAvailableWeeks={fetchAvailableWeeks}
+        setShowCopyModal={setShowCopyModal}
+        setShowStaffModal={setShowStaffModal}
+        handleLogout={handleLogout}
+        shifts={shifts}
+        setShifts={setShifts}
+      />
+      {/* DASHBOARD */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4 mb-6">
-          {' '}
-          {dashboardData.map((d) => (
-            <div
-              key={d.id}
-              onClick={() => setViewingStaffDetail(d)}
-              className="group bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer relative overflow-hidden active:scale-95"
-            >
-              <div className="flex justify-between items-center mb-2 relative z-10">
-                <span className="text-xs font-black text-slate-600 group-hover:text-blue-600 transition-colors uppercase">
-                  {d.name}
-                </span>
-                <span
-                  className={`text-[9px] px-2 py-0.5 rounded-full font-black transition-all ${
-                    d.remaining < 0
-                      ? 'bg-red-500 text-white shadow-sm'
-                      : d.remaining === 0
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-green-100 text-green-700'
-                  }`}
-                >
-                  {d.remaining < 0
-                    ? t.over
-                    : d.remaining === 0
-                    ? t.met
-                    : t.room}
-                </span>
-              </div>
-              <div className="flex items-baseline gap-1 relative z-10">
-                <span className="text-2xl font-black text-slate-800 tracking-tighter">
-                  {d.currentHours}
-                </span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-                  / {d.target}h
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden relative z-10">
-                <div
-                  className={`h-full rounded-full transition-all duration-700 ease-out ${
-                    d.remaining < 0
-                      ? 'bg-red-500 animate-pulse'
-                      : d.remaining === 0
-                      ? 'bg-blue-600'
-                      : 'bg-slate-800'
-                  }`}
-                  style={{ width: `${d.progressPercent}%` }}
-                ></div>
-              </div>
-              <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 rounded-full -mr-8 -mt-8 group-hover:bg-blue-50 transition-colors duration-500"></div>
-            </div>
-          ))}
-        </div>
+        <Dashboard
+          dashboardData={dashboardData}
+          setViewingStaffDetail={setViewingStaffDetail}
+          t={t}
+        />
 
         {/* 📅 タイムテーブルコンテナ: 2軸固定の実装 */}
-        {/* sticky と top を追加し、z-index を調整して他の要素との重なりを制御します */}
-        <div className="sticky top-16 md:top-[72px] z-30 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900 transition-all duration-300">
-          {' '}
-          {/* overflow-auto を追加し、max-h を指定することでコンテナ内スクロールを有効化 */}
-          {/* max-h を調整することで、一度に表示できる時間の範囲（縦幅）が変わります */}
-          {/* calc(100vh - ヘッダー高さ) を使うことで、画面の下端までピッタリ表示されます */}
-          <div
-            className="overflow-auto max-h-[calc(100vh-140px)] md:max-h-[calc(100vh-160px)] custom-scrollbar"
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp} // ← これがセットされていること
-            onPointerLeave={handlePointerUp} // ← 念のため画面外に出た時も確定させる
-          >
-            {' '}
-            <table className="w-full border-collapse table-fixed min-w-[1200px] md:min-w-[1400px] select-none">
-              {/* 曜日ヘッダー: sticky top-0 (コンテナ上部に吸着) */}
-              <thead className="sticky top-0 z-40 bg-white">
-                <tr className="bg-white">
-                  {/* 左上 Timeヘッダー: sticky left-0 かつ top-0 で交差点を最前面(z-50)で固定 */}
-                  <th className="w-16 border-b border-r-2 border-slate-200 bg-slate-50 sticky left-0 top-0 z-50 p-2 text-[10px] font-black text-slate-400 uppercase h-12">
-                    {t.time}
-                  </th>
-                  {DAYS.map((day) => (
-                    <th
-                      key={day}
-                      colSpan={4}
-                      className="border-b border-r-2 border-slate-200 bg-white p-3 text-center font-black text-slate-800 tracking-widest text-sm"
-                    >
-                      {day}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {TIMES.map((time) => (
-                  <tr key={time} className="h-9 group">
-                    {/* Time列: sticky left-0 (コンテナ左端に吸着、z-30) */}
-                    <td className="border-b border-r-2 border-slate-200 text-center text-[10px] md:text-[11px] font-black text-slate-400 bg-white sticky left-0 z-30 group-hover:bg-slate-50 transition-colors uppercase">
-                      <span
-                        className={
-                          time.endsWith(':00') ? 'text-slate-800' : 'opacity-40'
-                        }
-                      >
-                        {formatTime12(time)}
-                      </span>
-                    </td>
-                    {DAYS.map((day) =>
-                      LANES.map((lane) => {
-                        const cellShifts = shifts.filter(
-                          (s) =>
-                            s.day === day &&
-                            s.lane === lane &&
-                            timeToMins(s.startTime) >= timeToMins(time) &&
-                            timeToMins(s.startTime) < timeToMins(time) + 30
-                        );
-                        return (
-                          <td
-                            key={`${day}-${time}-${lane}`}
-                            data-day={day}
-                            data-lane={lane}
-                            onDoubleClick={() =>
-                              handleAddShift(day, time, lane)
-                            }
-                            className={`border-b ${
-                              time.endsWith(':30')
-                                ? 'border-slate-100'
-                                : 'border-slate-50 border-dashed'
-                            } ${
-                              lane === 4
-                                ? 'border-r-2 border-r-slate-200'
-                                : 'border-r border-slate-50'
-                            } p-0 hover:bg-blue-50/50 cursor-crosshair relative transition-colors`}
-                            title={t.doubleClickHint}
-                          >
-                            {cellShifts.map((shift) => (
-                              <div
-                                key={shift.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingShift(shift);
-                                }}
-                                onPointerDown={(e) =>
-                                  handlePointerDownShift(e, shift, 'move')
-                                }
-                                className={`absolute inset-x-1 rounded-lg p-2 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/10 z-10 cursor-grab active:cursor-grabbing transition-shadow ${
-                                  dragInfo?.id === shift.id &&
-                                  isActuallyDragging
-                                    ? 'z-[100] opacity-90 scale-[1.02] shadow-2xl ring-2 ring-blue-500'
-                                    : ''
-                                }`}
-                                style={{
-                                  top: `${
-                                    ((timeToMins(shift.startTime) -
-                                      timeToMins(time)) /
-                                      30) *
-                                      ROW_HEIGHT +
-                                    2
-                                  }px`,
-                                  height: `${
-                                    ((timeToMins(shift.endTime) -
-                                      timeToMins(shift.startTime)) /
-                                      30) *
-                                      ROW_HEIGHT -
-                                    4
-                                  }px`,
-                                  backgroundColor: shift.color,
-                                  touchAction: 'none',
-                                }}
-                              >
-                                <div
-                                  className="absolute top-0 left-0 right-0 h-3 cursor-ns-resize z-20"
-                                  onPointerDown={(e) =>
-                                    handlePointerDownShift(
-                                      e,
-                                      shift,
-                                      'resize-top'
-                                    )
-                                  }
-                                />
-                                <span className="font-black text-[10px] text-slate-900 truncate w-full pointer-events-none uppercase tracking-tighter">
-                                  {shift.staffName}
-                                </span>
-                                <span className="hidden md:block text-[9px] text-slate-800/60 pointer-events-none mt-1 font-black tracking-tighter">
-                                  {formatTime12(shift.startTime)}-
-                                  {formatTime12(shift.endTime)}
-                                </span>
-                                <div
-                                  className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize z-20"
-                                  onPointerDown={(e) =>
-                                    handlePointerDownShift(
-                                      e,
-                                      shift,
-                                      'resize-bottom'
-                                    )
-                                  }
-                                />
-                              </div>
-                            ))}
-                          </td>
-                        );
-                      })
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ShiftTable
+          DAYS={DAYS}
+          LANES={LANES}
+          TIMES={TIMES}
+          ROW_HEIGHT={ROW_HEIGHT}
+          shifts={shifts}
+          dragInfo={dragInfo}
+          isActuallyDragging={isActuallyDragging}
+          t={t}
+          formatTime12={formatTime12}
+          timeToMins={timeToMins}
+          handleAddShift={handleAddShift}
+          setEditingShift={setEditingShift}
+          handlePointerDownShift={handlePointerDownShift}
+          handlePointerMove={handlePointerMove}
+          handlePointerUp={handlePointerUp}
+        />
       </div>
       {/* --- モーダル類 --- */}
       {viewingStaffDetail && (
