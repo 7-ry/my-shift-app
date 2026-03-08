@@ -143,7 +143,6 @@ const Header = ({
               <div className="h-px bg-slate-300 my-1"></div>
               <button
                 onClick={() => {
-                  fetchAvailableWeeks();
                   setShowCopyModal(true);
                   setShowMenu(false);
                 }}

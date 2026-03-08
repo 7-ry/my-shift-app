@@ -26,6 +26,17 @@ import StaffDetailModal from './components/StaffDetailModal';
 import EditShiftModal from './components/EditShiftModal';
 import StaffManagementModal from './components/StaffManagementModal';
 import { syncToGAS } from './services/gasService';
+import CopyWeekModal from './components/CopyWeekModal';
+import {
+  timeToMins,
+  minsToTime,
+  calcTotalHours,
+  formatTime12,
+  getWeekDisplayVerbose,
+  getCurrentWeekId,
+  getSheetRowNum,
+  getSheetCellByRow,
+} from './utils/helpers.js';
 
 // --- 🌐 多言語辞書 ---
 const translations = {
@@ -104,96 +115,6 @@ for (let h = 9; h <= 23; h++) {
 const ROW_HEIGHT = 36;
 const DRAG_THRESHOLD = 20;
 
-// --- 🌟 ヘルパー関数 ---
-const getColumnLetter = (colIndex) => {
-  let letter = '';
-  while (colIndex > 0) {
-    let temp = (colIndex - 1) % 26;
-    letter = String.fromCharCode(temp + 65) + letter;
-    colIndex = (colIndex - temp - 1) / 26;
-  }
-  return letter;
-};
-
-const getSheetRowNum = (timeStr) => {
-  if (!timeStr) return 0;
-  const [h, m] = timeStr.split(':').map(Number);
-  return (h - 9) * 2 + (m >= 30 ? 1 : 0) + 5;
-};
-
-const getSheetCellByRow = (day, row, lane) => {
-  const dayIdx = DAYS.indexOf(day);
-  const baseCol = 2 + dayIdx * 5;
-  const colLetter = getColumnLetter(baseCol + (lane - 1));
-  return `${colLetter}${row}`;
-};
-
-const formatTime12 = (t) => {
-  if (!t) return '';
-  let [h, m] = t.split(':').map(Number);
-  const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
-  const displayM = m === 0 ? '' : ':' + m.toString().padStart(2, '0');
-  return `${displayH}${displayM}`;
-};
-
-const timeToMins = (timeStr) => {
-  if (!timeStr) return 0;
-  const [h, m] = timeStr.split(':').map(Number);
-  return h * 60 + m;
-};
-
-const minsToTime = (mins) => {
-  const h = Math.floor(mins / 60);
-  const m = Math.floor(mins % 60);
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-};
-
-const calcTotalHours = (start, end, breakHours) => {
-  const durationMins = timeToMins(end) - timeToMins(start);
-  let total = durationMins / 60 - (breakHours || 0);
-  if (total < 0) total = 0;
-  return Math.floor(total * 100) / 100;
-};
-
-const getWeekDisplayVerbose = (weekId, lang = 'en') => {
-  if (!weekId || !weekId.includes('-W')) return '';
-  try {
-    const [year, week] = weekId.split('-W').map(Number);
-    if (isNaN(year) || isNaN(week)) return '';
-
-    const simple = new Date(year, 0, 1 + (week - 1) * 7);
-    const dow = simple.getDay();
-    const ISOweekStart = new Date(simple);
-    if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-    else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-
-    const end = new Date(ISOweekStart);
-    end.setDate(ISOweekStart.getDate() + 6);
-
-    const options = { month: 'short', day: 'numeric' };
-    const locale = lang === 'en' ? 'en-CA' : 'ja-JP';
-
-    return `${ISOweekStart.toLocaleDateString(
-      locale,
-      options
-    )} - ${end.toLocaleDateString(locale, options)}`;
-  } catch (e) {
-    console.error('Date formatting error:', e);
-    return '';
-  }
-};
-
-const getCurrentWeekId = (date = new Date()) => {
-  const d = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-  );
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
-};
-
 function App() {
   const [lang, setLang] = useState(
     () => localStorage.getItem('appLang') || 'en'
@@ -213,8 +134,6 @@ function App() {
   const [showMenu, setShowMenu] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
-  const [availableWeeks, setAvailableWeeks] = useState([]);
-  const [selectedCopyWeek, setSelectedCopyWeek] = useState('');
   const hasInitialized = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [newStaff, setNewStaff] = useState({
@@ -354,6 +273,8 @@ function App() {
           getSheetCellByRow,
           formatTime12,
           getWeekDisplayVerbose,
+          getSheetCellByRow: (day, row, lane) =>
+            getSheetCellByRow(day, row, lane, DAYS), // ★ DAYSを追加
         },
       });
       alert('Success!');
@@ -521,40 +442,6 @@ function App() {
     setIsProcessing(false);
   };
 
-  const fetchAvailableWeeks = async () => {
-    const q = query(collection(db, 'shifts'));
-    const snapshot = await getDocs(q);
-    const weeks = new Set();
-    snapshot.docs.forEach((doc) => {
-      if (doc.data().weekId) weeks.add(doc.data().weekId);
-    });
-    setAvailableWeeks(Array.from(weeks).sort().reverse());
-  };
-
-  const executeCopy = async () => {
-    if (!selectedCopyWeek || isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const q = query(
-        collection(db, 'shifts'),
-        where('weekId', '==', selectedCopyWeek)
-      );
-      const snap = await getDocs(q);
-      const batch = writeBatch(db);
-      snap.forEach((d) =>
-        batch.set(doc(collection(db, 'shifts')), {
-          ...d.data(),
-          weekId: weekId,
-        })
-      );
-      await batch.commit();
-      window.location.reload();
-    } catch (error) {
-      console.error(error);
-    }
-    setIsProcessing(false);
-  };
-
   const dashboardData = staffs.map((staff) => {
     const total = shifts
       .filter((s) => s.staffName === staff.name)
@@ -633,7 +520,6 @@ function App() {
         showMenu={showMenu}
         setShowMenu={setShowMenu}
         handleSyncToGAS={handleSyncToGAS}
-        fetchAvailableWeeks={fetchAvailableWeeks}
         setShowCopyModal={setShowCopyModal}
         setShowStaffModal={setShowStaffModal}
         handleLogout={handleLogout}
@@ -703,6 +589,16 @@ function App() {
         isProcessing={isProcessing}
         setIsProcessing={setIsProcessing}
         t={t}
+      />
+      {/* App.jsx の下部、モーダル類の中に追加 */}
+      <CopyWeekModal
+        showCopyModal={showCopyModal}
+        setShowCopyModal={setShowCopyModal}
+        weekId={weekId}
+        setShifts={setShifts}
+        setIsProcessing={setIsProcessing}
+        t={t}
+        lang={lang}
       />
       {isProcessing && (
         <div className="fixed inset-0 bg-white/40 backdrop-blur-[4px] z-[100] flex items-center justify-center transition-all duration-500">
