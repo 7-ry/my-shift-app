@@ -147,6 +147,7 @@ function App() {
   const [isActuallyDragging, setIsActuallyDragging] = useState(false);
   const [loginId, setLoginId] = useState('');
   const [loginPw, setLoginPw] = useState('');
+  const [selectedShiftId, setSelectedShiftId] = useState(null); // 追加
 
   // 認証状態の監視（ブラウザを閉じてもログインを維持するための処理）
   useEffect(() => {
@@ -289,6 +290,11 @@ function App() {
   // 1. ドラッグ開始：要素の保存と拘束
   const handlePointerDownShift = (e, shift, type) => {
     e.stopPropagation();
+    // 🌟 追加：現在選択されていないシフトを触った場合、選択するだけでドラッグは開始しない
+    if (selectedShiftId !== shift.id) {
+      setSelectedShiftId(shift.id);
+      return; // ここで終了
+    }
     const currentTarget = e.currentTarget; // ★要素を取得
     setDragInfo({
       id: shift.id,
@@ -551,6 +557,8 @@ function App() {
           handlePointerDownShift={handlePointerDownShift}
           handlePointerMove={handlePointerMove}
           handlePointerUp={handlePointerUp}
+          selectedShiftId={selectedShiftId} // 追加
+          setSelectedShiftId={setSelectedShiftId} // 追加
         />
       </div>
       {/* --- モーダル類 --- */}
