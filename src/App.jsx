@@ -23,6 +23,9 @@ import {
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import ShiftTable from './components/ShiftTable';
+import StaffDetailModal from './components/StaffDetailModal';
+import EditShiftModal from './components/EditShiftModal';
+import StaffManagementModal from './components/StaffManagementModal';
 
 // --- 🌐 多言語辞書 ---
 const translations = {
@@ -857,428 +860,45 @@ function App() {
         />
       </div>
       {/* --- モーダル類 --- */}
-      {viewingStaffDetail && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
-          onClick={() => setViewingStaffDetail(null)}
-        >
-          <div
-            className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="p-8 border-b flex justify-between items-center bg-slate-50"
-              style={{ borderTop: `12px solid ${viewingStaffDetail.color}` }}
-            >
-              <div>
-                <h2 className="text-3xl font-black text-slate-800 uppercase leading-none tracking-tight">
-                  {viewingStaffDetail.name}
-                </h2>
-                <p className="text-[10px] font-black text-slate-400 mt-2 uppercase tracking-[0.2em]">
-                  {t.shiftsDetail}
-                </p>
-              </div>
-              <button
-                onClick={() => setViewingStaffDetail(null)}
-                className="w-12 h-12 flex items-center justify-center bg-white rounded-full shadow-md text-slate-400 hover:text-slate-800 font-bold transition-all active:scale-90"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="max-h-[55vh] overflow-y-auto p-8 space-y-4">
-              {shifts
-                .filter((s) => s.staffName === viewingStaffDetail.name)
-                .sort(
-                  (a, b) =>
-                    DAYS.indexOf(a.day) - DAYS.indexOf(b.day) ||
-                    timeToMins(a.startTime) - timeToMins(b.startTime)
-                )
-                .map((s, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-5 bg-slate-50 rounded-[24px] border border-slate-100 group hover:bg-white hover:shadow-xl transition-all duration-300"
-                  >
-                    <div className="flex items-center gap-5">
-                      <div
-                        className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black text-white shadow-lg"
-                        style={{ backgroundColor: viewingStaffDetail.color }}
-                      >
-                        <span className="text-[10px] leading-none opacity-80 uppercase">
-                          {s.day}
-                        </span>
-                        <span className="text-xl leading-none mt-1">
-                          L{s.lane}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="text-base font-black text-slate-800 tracking-tight">
-                          {formatTime12(s.startTime)} -{' '}
-                          {formatTime12(s.endTime)}
-                        </div>
-                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                          {t.break}: {s.breakHours}h
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-black text-slate-800 leading-none">
-                        {s.totalHours}
-                      </div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
-                        hrs
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              {shifts.filter((s) => s.staffName === viewingStaffDetail.name)
-                .length === 0 && (
-                <div className="text-center py-12 text-slate-400 font-black italic uppercase tracking-widest">
-                  {t.noShifts}
-                </div>
-              )}
-            </div>
-            <div className="p-8 bg-slate-900 flex justify-between items-center text-white">
-              <span className="text-xs font-black uppercase tracking-widest opacity-60">
-                {t.totalHours}
-              </span>
-              <span className="text-3xl font-black">
-                {viewingStaffDetail.currentHours}{' '}
-                <span className="text-sm opacity-40">
-                  / {viewingStaffDetail.target}h
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-      {showStaffModal && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
-          onClick={() => {
-            if (!isProcessing) setShowStaffModal(false);
-          }}
-        >
-          <div
-            className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-8 border-b flex justify-between items-center bg-slate-50">
-              <h2 className="text-2xl font-black uppercase tracking-tight">
-                {t.manage}
-              </h2>
-              <button
-                onClick={() => setShowStaffModal(false)}
-                className="text-slate-400 hover:text-slate-800 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {staffs.map((s, index) => (
-                <div
-                  key={s.id}
-                  className={`p-5 rounded-[28px] border-2 transition-all ${
-                    editingStaffId === s.id
-                      ? 'bg-blue-50 border-blue-400 shadow-inner'
-                      : 'bg-slate-50 border-transparent hover:border-slate-200'
-                  }`}
-                >
-                  {editingStaffId === s.id ? (
-                    <div className="space-y-5">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[11px] font-black text-slate-400 ml-1 uppercase tracking-widest">
-                            {t.staffName}
-                          </label>
-                          <input
-                            type="text"
-                            className="w-full px-5 py-3 rounded-2xl border-2 border-blue-200 font-black text-sm uppercase focus:border-blue-500 outline-none"
-                            value={staffEditData.name}
-                            onChange={(e) =>
-                              setStaffEditData({
-                                ...staffEditData,
-                                name: e.target.value.toUpperCase(),
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[11px] font-black text-slate-400 ml-1 uppercase tracking-widest">
-                            {t.target}
-                          </label>
-                          <input
-                            type="number"
-                            className="w-full px-5 py-3 rounded-2xl border-2 border-blue-200 font-black text-sm focus:border-blue-500 outline-none"
-                            value={staffEditData.target}
-                            onChange={(e) =>
-                              setStaffEditData({
-                                ...staffEditData,
-                                target: Number(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between gap-6 pt-2">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="color"
-                            className="w-10 h-10 rounded-full cursor-pointer border-4 border-white shadow-md"
-                            value={staffEditData.color}
-                            onChange={(e) =>
-                              setStaffEditData({
-                                ...staffEditData,
-                                color: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setEditingStaffId(null)}
-                            className="px-5 py-2 text-sm font-black text-slate-400 uppercase"
-                          >
-                            {t.cancel}
-                          </button>
-                          <button
-                            onClick={() => handleUpdateStaff(s.id)}
-                            className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-all uppercase"
-                          >
-                            {t.save}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-5 group">
-                      <div className="flex flex-col gap-1.5">
-                        <button
-                          onClick={() => handleMoveStaff(index, -1)}
-                          disabled={index === 0}
-                          className="text-xs text-slate-300 hover:text-slate-900 disabled:opacity-0 transition-all"
-                        >
-                          ▲
-                        </button>
-                        <button
-                          onClick={() => handleMoveStaff(index, 1)}
-                          disabled={index === staffs.length - 1}
-                          className="text-xs text-slate-300 hover:text-slate-900 disabled:opacity-0 transition-all"
-                        >
-                          ▼
-                        </button>
-                      </div>
-                      <div
-                        className="w-14 h-14 rounded-full shadow-xl border-4 border-white flex-shrink-0"
-                        style={{ backgroundColor: s.color }}
-                      ></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-black text-slate-900 text-lg leading-tight uppercase tracking-tight">
-                          {s.name}
-                        </div>
-                        <div className="text-[11px] font-bold text-slate-400 tracking-tighter flex items-center gap-3 uppercase">
-                          {t.target}: {s.target}h{' '}
-                          <span className="opacity-20">|</span>{' '}
-                          <span
-                            style={{ color: s.color }}
-                            className="font-mono text-[10px]"
-                          >
-                            {s.color}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleStartEditStaff(s)}
-                          className="p-3 text-slate-300 hover:text-blue-600 hover:bg-white rounded-full transition-all shadow-sm hover:shadow-md"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (window.confirm(t.confirmStaffDelete)) {
-                              setIsProcessing(true);
-                              await deleteDoc(doc(db, 'staffs', s.id));
-                              setStaffs(
-                                staffs.filter((staff) => staff.id !== s.id)
-                              );
-                              setIsProcessing(false);
-                            }
-                          }}
-                          className="p-3 text-slate-300 hover:text-rose-500 hover:bg-white rounded-full transition-all shadow-sm hover:shadow-md"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setIsProcessing(true);
-                const newOrder = staffs.length;
-                const docRef = await addDoc(collection(db, 'staffs'), {
-                  ...newStaff,
-                  order: newOrder,
-                });
-                setStaffs([
-                  ...staffs,
-                  { id: docRef.id, ...newStaff, order: newOrder },
-                ]);
-                setNewStaff({ name: '', color: '#cbd5e1', target: 24 });
-                setIsProcessing(false);
-              }}
-              className="p-8 border-t bg-slate-900 space-y-5"
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  placeholder={t.staffName}
-                  className="px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm uppercase placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newStaff.name}
-                  onChange={(e) =>
-                    setNewStaff({
-                      ...newStaff,
-                      name: e.target.value.toUpperCase(),
-                    })
-                  }
-                  required
-                />
-                <input
-                  type="number"
-                  placeholder={t.target}
-                  className="px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newStaff.target}
-                  onChange={(e) =>
-                    setNewStaff({ ...newStaff, target: Number(e.target.value) })
-                  }
-                  required
-                />
-              </div>
-              <div className="flex items-center gap-4">
-                <input
-                  type="color"
-                  className="w-12 h-12 rounded-full cursor-pointer border-4 border-white/10 bg-transparent"
-                  value={newStaff.color}
-                  onChange={(e) =>
-                    setNewStaff({ ...newStaff, color: e.target.value })
-                  }
-                />
-                <button
-                  type="submit"
-                  className="flex-1 bg-white text-slate-900 rounded-2xl py-3 font-black uppercase text-sm hover:bg-blue-400 transition-all shadow-2xl active:scale-95 tracking-widest"
-                >
-                  Add Staff
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {editingShift && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
-          onClick={() => setEditingShift(null)}
-        >
-          <div
-            className="bg-white rounded-[40px] shadow-2xl w-full max-sm p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-4 mb-8">
-              <div
-                className="w-4 h-12 rounded-full shadow-sm"
-                style={{ backgroundColor: editingShift.color }}
-              ></div>
-              <div>
-                <h2 className="text-3xl font-black text-slate-800 uppercase leading-none tracking-tight">
-                  {editingShift.staffName}
-                </h2>
-                <p className="text-[10px] font-black text-slate-400 mt-1 tracking-widest">
-                  {t.editShift}
-                </p>
-              </div>
-            </div>
-            <form onSubmit={handleUpdateShift} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
-                    Start
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-black focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
-                    value={editingShift.startTime}
-                    onChange={(e) =>
-                      setEditingShift({
-                        ...editingShift,
-                        startTime: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
-                    End
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-black focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
-                    value={editingShift.endTime}
-                    onChange={(e) =>
-                      setEditingShift({
-                        ...editingShift,
-                        endTime: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
-                  {t.break}
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-6 py-4 font-black appearance-none cursor-pointer focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
-                    value={editingShift.breakHours}
-                    onChange={(e) =>
-                      setEditingShift({
-                        ...editingShift,
-                        breakHours: parseFloat(e.target.value),
-                      })
-                    }
-                  >
-                    <option value="0">None (0h)</option>
-                    <option value="0.5">30 mins (0.5h)</option>
-                    <option value="1">1 hour (1.0h)</option>
-                    <option value="1.5">1.5 hours (1.5h)</option>
-                  </select>
-                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
-                    ▼
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-4 pt-6">
-                <button
-                  type="button"
-                  onClick={handleDeleteShift}
-                  className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs tracking-widest"
-                >
-                  {t.delete}
-                </button>
-                <button
-                  type="submit"
-                  className="flex-[2] bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-slate-800 active:scale-95 transition-all uppercase text-xs tracking-widest"
-                >
-                  {t.save}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <StaffDetailModal
+        viewingStaffDetail={viewingStaffDetail}
+        setViewingStaffDetail={setViewingStaffDetail}
+        shifts={shifts}
+        DAYS={DAYS}
+        timeToMins={timeToMins}
+        formatTime12={formatTime12}
+        t={t}
+      />
+      <StaffManagementModal
+        showStaffModal={showStaffModal}
+        setShowStaffModal={setShowStaffModal}
+        staffs={staffs}
+        setStaffs={setStaffs}
+        editingStaffId={editingStaffId}
+        setEditingStaffId={setEditingStaffId}
+        staffEditData={staffEditData}
+        setStaffEditData={setStaffEditData}
+        handleUpdateStaff={handleUpdateStaff}
+        handleStartEditStaff={handleStartEditStaff}
+        handleMoveStaff={handleMoveStaff}
+        setIsProcessing={setIsProcessing}
+        deleteDoc={deleteDoc}
+        doc={doc}
+        db={db}
+        newStaff={newStaff}
+        setNewStaff={setNewStaff}
+        addDoc={addDoc}
+        collection={collection}
+        isProcessing={isProcessing}
+        t={t}
+      />
+      <EditShiftModal
+        editingShift={editingShift}
+        setEditingShift={setEditingShift}
+        handleUpdateShift={handleUpdateShift}
+        handleDeleteShift={handleDeleteShift}
+        t={t}
+      />
       {isProcessing && (
         <div className="fixed inset-0 bg-white/40 backdrop-blur-[4px] z-[100] flex items-center justify-center transition-all duration-500">
           <div className="bg-slate-900 text-white px-10 py-6 rounded-[32px] font-black shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] animate-bounce flex items-center gap-4 border-2 border-white/20">
