@@ -5,35 +5,29 @@ import { db } from '../firebase';
 const EditShiftModal = ({
   editingShift,
   setEditingShift,
-  shifts, // ★ 追加
-  setShifts, // ★ 追加
-  calcTotalHours, // ★ App.jsx から渡す（計算ロジック共通化のため）
+  shifts,
+  setShifts,
+  calcTotalHours,
   isProcessing,
   setIsProcessing,
   t,
 }) => {
   if (!editingShift) return null;
 
-  // --- 💾 保存ロジック (App.jsx から移設) ---
   const onSave = async (e) => {
     if (e) e.preventDefault();
     if (isProcessing) return;
     setIsProcessing(true);
-
     try {
       const total = calcTotalHours(
         editingShift.startTime,
         editingShift.endTime,
         editingShift.breakHours
       );
-
-      // Firestore を更新
       await updateDoc(doc(db, 'shifts', editingShift.id), {
         ...editingShift,
         totalHours: total,
       });
-
-      // ローカルの shifts ステートを更新
       setShifts((prev) =>
         prev.map((s) =>
           s.id === editingShift.id ? { ...editingShift, totalHours: total } : s
@@ -41,32 +35,23 @@ const EditShiftModal = ({
       );
       setEditingShift(null);
     } catch (error) {
-      console.error('Shift Update Error:', error);
-      alert('保存に失敗しました。');
-    } finally {
-      setIsProcessing(false);
+      console.error(error);
     }
+    setIsProcessing(false);
   };
 
-  // --- 🗑️ 削除ロジック (App.jsx から移設) ---
   const onDelete = async () => {
     if (isProcessing) return;
     if (!window.confirm(t.confirmDelete)) return;
-
     setIsProcessing(true);
     try {
-      // Firestore から削除
       await deleteDoc(doc(db, 'shifts', editingShift.id));
-
-      // ローカルの shifts ステートから削除
       setShifts((prev) => prev.filter((s) => s.id !== editingShift.id));
       setEditingShift(null);
     } catch (error) {
-      console.error('Shift Delete Error:', error);
-      alert('削除に失敗しました。');
-    } finally {
-      setIsProcessing(false);
+      console.error(error);
     }
+    setIsProcessing(false);
   };
 
   return (
@@ -75,7 +60,7 @@ const EditShiftModal = ({
       onClick={() => !isProcessing && setEditingShift(null)}
     >
       <div
-        className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-8 animate-in fade-in zoom-in duration-200"
+        className="bg-white rounded-[40px] shadow-2xl w-full max-sm p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-4 mb-8">
@@ -92,8 +77,6 @@ const EditShiftModal = ({
             </p>
           </div>
         </div>
-
-        {/* onSubmit を内部の onSave に変更 */}
         <form onSubmit={onSave} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -126,7 +109,6 @@ const EditShiftModal = ({
               />
             </div>
           </div>
-
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
               {t.break}
@@ -152,11 +134,10 @@ const EditShiftModal = ({
               </div>
             </div>
           </div>
-
           <div className="flex gap-4 pt-6">
             <button
               type="button"
-              onClick={onDelete} // ★ 内部の onDelete を実行
+              onClick={onDelete}
               className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs tracking-widest"
             >
               {t.delete}
