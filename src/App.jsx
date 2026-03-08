@@ -11,7 +11,6 @@ import {
   where,
   writeBatch,
   orderBy,
-  getFirestore,
 } from 'firebase/firestore';
 import {
   signInWithEmailAndPassword,
@@ -215,7 +214,6 @@ function App() {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [availableWeeks, setAvailableWeeks] = useState([]);
   const [selectedCopyWeek, setSelectedCopyWeek] = useState('');
-  const menuRef = useRef(null);
   const hasInitialized = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [newStaff, setNewStaff] = useState({
@@ -278,15 +276,6 @@ function App() {
   useEffect(() => {
     localStorage.setItem('appLang', lang);
   }, [lang]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target))
-        setShowMenu(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const fetchStaffs = useCallback(async () => {
     const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
@@ -436,123 +425,6 @@ function App() {
     } catch (error) {
       console.error(error);
       alert('Error');
-    }
-    setIsProcessing(false);
-  };
-
-  const handleMoveStaff = async (index, direction) => {
-    if (isProcessing) return;
-    const newStaffs = [...staffs];
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= newStaffs.length) return;
-    setIsProcessing(true);
-    [newStaffs[index], newStaffs[targetIndex]] = [
-      newStaffs[targetIndex],
-      newStaffs[index],
-    ];
-    const batch = writeBatch(db);
-    newStaffs.forEach((s, i) => {
-      batch.update(doc(db, 'staffs', s.id), { order: i });
-    });
-    try {
-      await batch.commit();
-      setStaffs(newStaffs);
-    } catch (e) {
-      console.error(e);
-    }
-    setIsProcessing(false);
-  };
-
-  const handleUpdateStaff = async (staffId) => {
-    if (isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const oldStaff = staffs.find((s) => s.id === staffId);
-      await updateDoc(doc(db, 'staffs', staffId), staffEditData);
-      if (
-        oldStaff.name !== staffEditData.name ||
-        oldStaff.color !== staffEditData.color
-      ) {
-        const batch = writeBatch(db);
-        const q = query(
-          collection(db, 'shifts'),
-          where('staffName', '==', oldStaff.name)
-        );
-        const snapshot = await getDocs(q);
-        snapshot.forEach((d) => {
-          batch.update(doc(db, 'shifts', d.id), {
-            staffName: staffEditData.name,
-            color: staffEditData.color,
-          });
-        });
-        await batch.commit();
-        setShifts((prev) =>
-          prev.map((s) =>
-            s.staffName === oldStaff.name
-              ? {
-                  ...s,
-                  staffName: staffEditData.name,
-                  color: staffEditData.color,
-                }
-              : s
-          )
-        );
-      }
-      setStaffs((prev) =>
-        prev.map((s) => (s.id === staffId ? { ...s, ...staffEditData } : s))
-      );
-      setEditingStaffId(null);
-    } catch (e) {
-      console.error(e);
-    }
-    setIsProcessing(false);
-  };
-
-  const handleStartEditStaff = (staff) => {
-    setEditingStaffId(staff.id);
-    setStaffEditData({
-      name: staff.name,
-      color: staff.color,
-      target: staff.target,
-    });
-  };
-
-  const handleUpdateShift = async (e) => {
-    if (e) e.preventDefault();
-    if (!editingShift || isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const total = calcTotalHours(
-        editingShift.startTime,
-        editingShift.endTime,
-        editingShift.breakHours
-      );
-      await updateDoc(doc(db, 'shifts', editingShift.id), {
-        ...editingShift,
-        totalHours: total,
-      });
-      setShifts((prev) =>
-        prev.map((s) =>
-          s.id === editingShift.id ? { ...editingShift, totalHours: total } : s
-        )
-      );
-      setEditingShift(null);
-    } catch (error) {
-      console.error(error);
-    }
-    setIsProcessing(false);
-  };
-
-  const handleDeleteShift = async () => {
-    if (!editingShift || isProcessing) return;
-    if (!window.confirm(t.confirmDelete)) return;
-    setIsProcessing(true);
-    try {
-      await deleteDoc(doc(db, 'shifts', editingShift.id));
-      setShifts((prev) => prev.filter((s) => s.id !== editingShift.id));
-      setEditingShift(null);
-    } catch (error) {
-      console.error(error);
     }
     setIsProcessing(false);
   };
@@ -874,29 +746,26 @@ function App() {
         setShowStaffModal={setShowStaffModal}
         staffs={staffs}
         setStaffs={setStaffs}
+        shifts={shifts} // ★追加
+        setShifts={setShifts} // ★追加
         editingStaffId={editingStaffId}
         setEditingStaffId={setEditingStaffId}
         staffEditData={staffEditData}
         setStaffEditData={setStaffEditData}
-        handleUpdateStaff={handleUpdateStaff}
-        handleStartEditStaff={handleStartEditStaff}
-        handleMoveStaff={handleMoveStaff}
         setIsProcessing={setIsProcessing}
-        deleteDoc={deleteDoc}
-        doc={doc}
-        db={db}
         newStaff={newStaff}
         setNewStaff={setNewStaff}
-        addDoc={addDoc}
-        collection={collection}
         isProcessing={isProcessing}
         t={t}
       />
       <EditShiftModal
         editingShift={editingShift}
         setEditingShift={setEditingShift}
-        handleUpdateShift={handleUpdateShift}
-        handleDeleteShift={handleDeleteShift}
+        shifts={shifts} // ★ 追加
+        setShifts={setShifts} // ★ 追加
+        calcTotalHours={calcTotalHours} // ★ 追加
+        isProcessing={isProcessing}
+        setIsProcessing={setIsProcessing}
         t={t}
       />
       {isProcessing && (
