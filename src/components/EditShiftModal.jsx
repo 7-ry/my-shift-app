@@ -60,8 +60,8 @@ const EditShiftModal = ({
       onClick={() => !isProcessing && setEditingShift(null)}
     >
       <div
-        // 🌟 max-sm を max-w-sm に修正。さらに p-6 に少し絞って内側の余白を確保
-        className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-6 md:p-8"
+        // 🌟 修正: max-sm を max-w-sm に。余白をスマホでは p-5 に縮小。
+        className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-5 md:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-4 mb-8">
@@ -78,8 +78,9 @@ const EditShiftModal = ({
             </p>
           </div>
         </div>
+
         <form onSubmit={onSave} className="space-y-6">
-          {/* 🌟 gap-4 を gap-3 に。スマホでの横幅を節約 */}
+          {/* 🌟 修正: 横並びを維持しつつ、間隔(gap)をスマホでは少し狭める */}
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
@@ -87,8 +88,7 @@ const EditShiftModal = ({
               </label>
               <input
                 type="time"
-                // 🌟 px-5 を px-3 (スマホ用) / md:px-5 (PC用) に。
-                // 🌟 text-sm を指定して文字の横幅も少し抑える
+                // 🌟 修正: px-3 (スマホ用) / md:px-5 (PC用) とし、文字サイズを text-sm に調整
                 className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-3 md:px-5 py-4 font-black text-sm md:text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
                 value={editingShift.startTime}
                 onChange={(e) =>
@@ -113,6 +113,7 @@ const EditShiftModal = ({
               />
             </div>
           </div>
+
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
               {t.break}
@@ -138,6 +139,7 @@ const EditShiftModal = ({
               </div>
             </div>
           </div>
+
           <div className="flex gap-4 pt-6">
             <button
               type="button"
