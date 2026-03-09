@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { doc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -14,8 +14,6 @@ const Header = ({
   staffs,
   selectedStaff,
   setSelectedStaff,
-  showMenu,
-  setShowMenu,
   handleSyncToGAS,
   fetchAvailableWeeks,
   setShowCopyModal,
@@ -24,6 +22,7 @@ const Header = ({
   shifts,
   setShifts,
 }) => {
+  const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
 
   // メニュー外クリックで閉じる処理をHeader内に移動してカプセル化

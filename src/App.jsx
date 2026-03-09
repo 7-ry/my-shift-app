@@ -59,7 +59,6 @@ function App() {
   const [weekId, setWeekId] = useState(
     () => localStorage.getItem('lastViewedWeek') || getCurrentWeekId()
   );
-  const [showMenu, setShowMenu] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const hasInitialized = useRef(false);
@@ -171,7 +170,6 @@ function App() {
       return;
 
     setIsProcessing(true);
-    setShowMenu(false);
 
     try {
       // 外部化したサービスを呼び出す
@@ -279,8 +277,6 @@ function App() {
         staffs={staffs}
         selectedStaff={selectedStaff}
         setSelectedStaff={setSelectedStaff}
-        showMenu={showMenu}
-        setShowMenu={setShowMenu}
         handleSyncToGAS={handleSyncToGAS}
         setShowCopyModal={setShowCopyModal}
         setShowStaffModal={setShowStaffModal}
