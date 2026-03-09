@@ -16,27 +16,22 @@ const ShiftTable = ({
   handlePointerDownShift,
   handlePointerMove,
   handlePointerUp,
+  selectedShiftId,
+  setSelectedShiftId,
 }) => {
   return (
-    /* 📅 タイムテーブルコンテナ: 2軸固定の実装 */
-    /* sticky と top を追加し、z-index を調整して他の要素との重なりを制御します */
     <div className="sticky top-16 md:top-[72px] z-30 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900 transition-all duration-300">
-      {' '}
-      {/* overflow-auto を追加し、max-h を指定することでコンテナ内スクロールを有効化 */}
-      {/* max-h を調整することで、一度に表示できる時間の範囲（縦幅）が変わります */}
-      {/* calc(100vh - ヘッダー高さ) を使うことで、画面の下端までピッタリ表示されます */}
       <div
         className="overflow-auto max-h-[calc(100vh-140px)] md:max-h-[calc(100vh-160px)] custom-scrollbar"
         onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp} // ← これがセットされていること
-        onPointerLeave={handlePointerUp} // ← 念のため画面外に出た時も確定させる
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        // 背景クリックで選択を解除
+        onClick={() => setSelectedShiftId(null)}
       >
-        {' '}
         <table className="w-full border-collapse table-fixed min-w-[1200px] md:min-w-[1400px] select-none">
-          {/* 曜日ヘッダー: sticky top-0 (コンテナ上部に吸着) */}
           <thead className="sticky top-0 z-40 bg-white">
             <tr className="bg-white">
-              {/* 左上 Timeヘッダー: sticky left-0 かつ top-0 で交差点を最前面(z-50)で固定 */}
               <th className="w-16 border-b border-r-2 border-slate-200 bg-slate-50 sticky left-0 top-0 z-50 p-2 text-[10px] font-black text-slate-400 uppercase h-12">
                 {t.time}
               </th>
@@ -54,7 +49,6 @@ const ShiftTable = ({
           <tbody>
             {TIMES.map((time) => (
               <tr key={time} className="h-9 group">
-                {/* Time列: sticky left-0 (コンテナ左端に吸着、z-30) */}
                 <td className="border-b border-r-2 border-slate-200 text-center text-[10px] md:text-[11px] font-black text-slate-400 bg-white sticky left-0 z-30 group-hover:bg-slate-50 transition-colors uppercase">
                   <span
                     className={
@@ -90,65 +84,90 @@ const ShiftTable = ({
                         } p-0 hover:bg-blue-50/50 cursor-crosshair relative transition-colors`}
                         title={t.doubleClickHint}
                       >
-                        {cellShifts.map((shift) => (
-                          <div
-                            key={shift.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingShift(shift);
-                            }}
-                            onPointerDown={(e) =>
-                              handlePointerDownShift(e, shift, 'move')
-                            }
-                            className={`absolute inset-x-1 rounded-lg p-2 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/10 z-10 cursor-grab active:cursor-grabbing transition-shadow ${
-                              dragInfo?.id === shift.id && isActuallyDragging
-                                ? 'z-[100] opacity-90 scale-[1.02] shadow-2xl ring-2 ring-blue-500'
-                                : ''
-                            }`}
-                            style={{
-                              top: `${
-                                ((timeToMins(shift.startTime) -
-                                  timeToMins(time)) /
-                                  30) *
-                                  ROW_HEIGHT +
-                                2
-                              }px`,
-                              height: `${
-                                ((timeToMins(shift.endTime) -
-                                  timeToMins(shift.startTime)) /
-                                  30) *
-                                  ROW_HEIGHT -
-                                4
-                              }px`,
-                              backgroundColor: shift.color,
-                              touchAction: 'none',
-                            }}
-                          >
+                        {cellShifts.map((shift) => {
+                          // 🌟 ここで変数を定義（ReferenceErrorを解消）
+                          const isSelected = selectedShiftId === shift.id;
+
+                          return (
                             <div
-                              className="absolute top-0 left-0 right-0 h-3 cursor-ns-resize z-20"
+                              key={shift.id}
+                              onClick={(e) => e.stopPropagation()}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingShift(shift);
+                              }}
                               onPointerDown={(e) =>
-                                handlePointerDownShift(e, shift, 'resize-top')
+                                handlePointerDownShift(e, shift, 'move')
                               }
-                            />
-                            <span className="font-black text-[10px] text-slate-900 truncate w-full pointer-events-none uppercase tracking-tighter">
-                              {shift.staffName}
-                            </span>
-                            <span className="hidden md:block text-[9px] text-slate-800/60 pointer-events-none mt-1 font-black tracking-tighter">
-                              {formatTime12(shift.startTime)}-
-                              {formatTime12(shift.endTime)}
-                            </span>
-                            <div
-                              className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize z-20"
-                              onPointerDown={(e) =>
-                                handlePointerDownShift(
-                                  e,
-                                  shift,
-                                  'resize-bottom'
-                                )
-                              }
-                            />
-                          </div>
-                        ))}
+                              className={`absolute inset-x-1 rounded-lg p-2 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/10 z-10 cursor-grab active:cursor-grabbing transition-all ${
+                                isSelected
+                                  ? 'ring-4 ring-blue-500 z-50 shadow-2xl scale-[1.02]'
+                                  : ''
+                              } ${
+                                dragInfo?.id === shift.id && isActuallyDragging
+                                  ? 'opacity-90'
+                                  : ''
+                              }`}
+                              style={{
+                                top: `${
+                                  ((timeToMins(shift.startTime) -
+                                    timeToMins(time)) /
+                                    30) *
+                                    ROW_HEIGHT +
+                                  2
+                                }px`,
+                                height: `${
+                                  ((timeToMins(shift.endTime) -
+                                    timeToMins(shift.startTime)) /
+                                    30) *
+                                    ROW_HEIGHT -
+                                  4
+                                }px`,
+                                backgroundColor: shift.color,
+                                touchAction: 'none',
+                              }}
+                            >
+                              {/* 選択中のみ上ハンドル表示 */}
+                              {isSelected && (
+                                <div
+                                  className="absolute top-0 left-0 right-0 h-4 cursor-ns-resize z-20"
+                                  onPointerDown={(e) =>
+                                    handlePointerDownShift(
+                                      e,
+                                      shift,
+                                      'resize-top'
+                                    )
+                                  }
+                                />
+                              )}
+
+                              <div className="flex justify-between items-start w-full pointer-events-none">
+                                <span className="font-black text-[10px] text-slate-900 truncate uppercase tracking-tighter">
+                                  {shift.staffName}
+                                </span>
+                              </div>
+
+                              <span className="hidden md:block text-[9px] text-slate-800/60 pointer-events-none mt-1 font-black tracking-tighter">
+                                {formatTime12(shift.startTime)}-
+                                {formatTime12(shift.endTime)}
+                              </span>
+
+                              {/* 選択中のみ下ハンドル表示 */}
+                              {isSelected && (
+                                <div
+                                  className="absolute bottom-0 left-0 right-0 h-4 cursor-ns-resize z-20"
+                                  onPointerDown={(e) =>
+                                    handlePointerDownShift(
+                                      e,
+                                      shift,
+                                      'resize-bottom'
+                                    )
+                                  }
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </td>
                     );
                   })
