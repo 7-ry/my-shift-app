@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   doc,
   deleteDoc,
@@ -17,18 +17,20 @@ const StaffManagementModal = ({
   setShowStaffModal,
   staffs,
   setStaffs,
-  editingStaffId,
-  setEditingStaffId,
-  staffEditData,
-  setStaffEditData,
   setIsProcessing,
-  newStaff,
-  setNewStaff,
   isProcessing,
   t,
   shifts,
   setShifts,
 }) => {
+  const [newStaff, setNewStaff] = useState({
+    name: '',
+    color: '#cbd5e1',
+    target: 24,
+  });
+  const [editingStaffId, setEditingStaffId] = useState(null);
+  const [staffEditData, setStaffEditData] = useState({});
+
   if (!showStaffModal) return null;
 
   const handleAddStaff = async (e) => {

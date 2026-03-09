@@ -12,11 +12,7 @@ import {
   writeBatch,
   orderBy,
 } from 'firebase/firestore';
-import {
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-} from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // components import
 import Header from './components/Header';
@@ -25,6 +21,7 @@ import ShiftTable from './components/ShiftTable';
 import StaffDetailModal from './components/StaffDetailModal';
 import EditShiftModal from './components/EditShiftModal';
 import StaffManagementModal from './components/StaffManagementModal';
+import Login from './components/Login'; // 追加
 import { syncToGAS } from './services/gasService';
 import CopyWeekModal from './components/CopyWeekModal';
 import {
@@ -37,6 +34,7 @@ import {
   getSheetRowNum,
   getSheetCellByRow,
 } from './utils/helpers.js';
+import { useShiftDrag } from './hooks/useShiftDrag';
 
 // --- 🌐 多言語辞書 ---
 const translations = {
@@ -127,7 +125,6 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingShift, setEditingShift] = useState(null);
-  const [dragInfo, setDragInfo] = useState(null);
   const [weekId, setWeekId] = useState(
     () => localStorage.getItem('lastViewedWeek') || getCurrentWeekId()
   );
@@ -136,16 +133,7 @@ function App() {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const hasInitialized = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [newStaff, setNewStaff] = useState({
-    name: '',
-    color: '#cbd5e1',
-    target: 24,
-  });
-  const [editingStaffId, setEditingStaffId] = useState(null);
-  const [staffEditData, setStaffEditData] = useState({});
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
-  const [isActuallyDragging, setIsActuallyDragging] = useState(false);
-  const [loginId, setLoginId] = useState('');
   const [loginPw, setLoginPw] = useState('');
   const [selectedShiftId, setSelectedShiftId] = useState(null); // 追加
 
@@ -157,30 +145,6 @@ function App() {
     });
     return unsubscribe;
   }, []);
-
-  // 合言葉による共通ログイン
-  const handleSecretLogin = async () => {
-    // 環境変数から期待値をロード
-    const targetId = import.meta.env.VITE_UI_USERID;
-    const targetPw = import.meta.env.VITE_UI_PASSCODE;
-    const fbAdminEmail = import.meta.env.VITE_FB_ADMIN_EMAIL;
-    const fbAdminPass = import.meta.env.VITE_FB_ADMIN_PASS;
-
-    // 1. UI入力値と環境変数の照合
-    if (loginPw === targetPw) {
-      try {
-        // 2. 照合成功時のみ、裏側でFirebaseの共通アカウントでサインイン
-        await signInWithEmailAndPassword(auth, fbAdminEmail, fbAdminPass);
-      } catch (error) {
-        console.error('Firebase Auth Error:', error.code);
-        alert(
-          'システム認証エラーが発生しました。Firebaseコンソールの設定を確認してください。'
-        );
-      }
-    } else {
-      alert('ユーザー名またはパスワードが正しくありません。');
-    }
-  };
 
   const handleLogout = async () => {
     if (window.confirm('ログアウトしますか？')) {
@@ -232,6 +196,25 @@ function App() {
     };
     fetchShifts();
   }, [weekId]);
+
+  const {
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerDownShift,
+    dragInfo,
+    isActuallyDragging,
+  } = useShiftDrag({
+    shifts,
+    setShifts,
+    selectedShiftId,
+    setSelectedShiftId,
+    setSelectedStaff,
+    timeToMins,
+    minsToTime,
+    calcTotalHours,
+    ROW_HEIGHT,
+    DRAG_THRESHOLD,
+  });
 
   const changeWeek = (offset) => {
     const [year, week] = weekId.split('-W').map(Number);
@@ -287,141 +270,6 @@ function App() {
     }
   };
 
-  // 1. ドラッグ開始：要素の保存と拘束
-  const handlePointerDownShift = (e, shift, type) => {
-    e.stopPropagation();
-    // 🌟 追加：現在選択されていないシフトを触った場合、選択するだけでドラッグは開始しない
-    if (selectedShiftId !== shift.id) {
-      setSelectedShiftId(shift.id);
-      return; // ここで終了
-    }
-    const currentTarget = e.currentTarget; // ★要素を取得
-    setDragInfo({
-      id: shift.id,
-      type,
-      startY: e.clientY,
-      startX: e.clientX,
-      initStartMins: timeToMins(shift.startTime),
-      initEndMins: timeToMins(shift.endTime),
-      initDay: shift.day,
-      initLane: shift.lane,
-      targetElement: currentTarget, // ★dragInfoに要素を保存
-    });
-    setIsActuallyDragging(false);
-    currentTarget.setPointerCapture(e.pointerId); // ★この要素にポインターを拘束
-  };
-
-  // 2. ドラッグ中：UIの即時更新
-  const handlePointerMove = useCallback(
-    (e) => {
-      if (!dragInfo) return;
-      const deltaY = e.clientY - dragInfo.startY;
-      const deltaX = e.clientX - dragInfo.startX;
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-      if (!isActuallyDragging) {
-        if (distance > DRAG_THRESHOLD) {
-          setIsActuallyDragging(true);
-        } else {
-          return;
-        }
-      }
-
-      const deltaMins = Math.round(((deltaY / ROW_HEIGHT) * 30) / 5) * 5;
-      const targetTd = document
-        .elementsFromPoint(e.clientX, e.clientY)
-        .find((el) => el.tagName === 'TD' && el.dataset.day);
-
-      setShifts((prev) =>
-        prev.map((s) => {
-          if (s.id !== dragInfo.id) return s;
-          let nS = dragInfo.initStartMins,
-            nE = dragInfo.initEndMins,
-            nD = s.day,
-            nL = s.lane;
-          if (dragInfo.type === 'move') {
-            nS += deltaMins;
-            nE += deltaMins;
-            if (targetTd) {
-              nD = targetTd.dataset.day;
-              nL = Number(targetTd.dataset.lane);
-            }
-          } else if (dragInfo.type === 'resize-top') {
-            nS += deltaMins;
-          } else if (dragInfo.type === 'resize-bottom') {
-            nE += deltaMins;
-          }
-          const limitStart = timeToMins('09:00'),
-            limitEnd = timeToMins('24:00');
-          nS = Math.max(limitStart, Math.min(nS, nE - 15));
-          nE = Math.min(limitEnd, Math.max(nE, nS + 15));
-          const sStr = minsToTime(nS),
-            eStr = minsToTime(nE);
-          return {
-            ...s,
-            startTime: sStr,
-            endTime: eStr,
-            totalHours: calcTotalHours(sStr, eStr, s.breakHours),
-            day: nD,
-            lane: nL,
-          };
-        })
-      );
-    },
-    [dragInfo, isActuallyDragging]
-  );
-
-  // 3. ドラッグ終了：Firebaseへの保存 (★重要)
-  const handlePointerUp = useCallback(
-    async (e) => {
-      if (!dragInfo) return;
-
-      // ポインターの拘束を解除
-      if (
-        dragInfo.targetElement &&
-        dragInfo.targetElement.hasPointerCapture(e.pointerId)
-      ) {
-        dragInfo.targetElement.releasePointerCapture(e.pointerId);
-      }
-
-      // ドラッグ終了時の最新データを取得
-      const draggedId = dragInfo.id;
-      const finalShift = shifts.find((s) => s.id === draggedId);
-      const wasDragging = isActuallyDragging;
-
-      // 状態をリセット
-      setDragInfo(null);
-      setIsActuallyDragging(false);
-
-      // ★実際に移動が行われていた場合のみFirebaseを更新
-      if (wasDragging && finalShift) {
-        try {
-          const shiftRef = doc(db, 'shifts', draggedId);
-          await updateDoc(shiftRef, {
-            startTime: finalShift.startTime,
-            endTime: finalShift.endTime,
-            day: finalShift.day,
-            lane: finalShift.lane,
-            totalHours: finalShift.totalHours,
-          });
-          console.log('Firebase synced: ', finalShift.staffName);
-        } catch (error) {
-          console.error('Firebase update failed:', error);
-        }
-      }
-    },
-    [dragInfo, isActuallyDragging, shifts] // ★最新のshiftsを参照するために依存関係に追加
-  );
-
-  useEffect(() => {
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [handlePointerMove, handlePointerUp]);
-
   const handleAddShift = async (day, time, lane) => {
     if (isProcessing || !selectedStaff) return;
     setIsProcessing(true);
@@ -461,7 +309,7 @@ function App() {
     };
   });
 
-  // 1. セッション確認中のローディング
+  // 1. Login
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50">
@@ -474,42 +322,19 @@ function App() {
       </div>
     );
   }
-
-  // 2. 未ログイン時の壁（ログインページ）
   if (!user) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6">
-        <div className="w-full max-w-sm space-y-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-black tracking-tighter mb-2">SAKU</h1>
-            <p className="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px]">
-              Staff Only Portal
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <input
-              type="password"
-              autoFocus
-              value={loginPw}
-              placeholder="ENTER PASSCODE"
-              className="w-full bg-slate-800 border-none rounded-3xl py-5 px-6 text-center text-2xl font-black tracking-[0.4em] focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-700 placeholder:tracking-normal"
-              onChange={(e) => setLoginPw(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSecretLogin();
-              }}
-            />
-            <p className="text-center text-[10px] text-slate-600 font-black uppercase animate-pulse">
-              Press Enter to Login
-            </p>
-          </div>
-        </div>
-      </div>
+      <Login
+        loginPw={loginPw}
+        setLoginPw={setLoginPw}
+        isProcessing={isProcessing}
+        setIsProcessing={setIsProcessing}
+      />
     );
   }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 selection:bg-blue-200">
-      {' '}
       {/* Header */}
       <Header
         lang={lang}
@@ -561,7 +386,6 @@ function App() {
           setSelectedShiftId={setSelectedShiftId} // 追加
         />
       </div>
-      {/* --- モーダル類 --- */}
       <StaffDetailModal
         viewingStaffDetail={viewingStaffDetail}
         setViewingStaffDetail={setViewingStaffDetail}
@@ -578,13 +402,7 @@ function App() {
         setStaffs={setStaffs}
         shifts={shifts} // ★追加
         setShifts={setShifts} // ★追加
-        editingStaffId={editingStaffId}
-        setEditingStaffId={setEditingStaffId}
-        staffEditData={staffEditData}
-        setStaffEditData={setStaffEditData}
         setIsProcessing={setIsProcessing}
-        newStaff={newStaff}
-        setNewStaff={setNewStaff}
         isProcessing={isProcessing}
         t={t}
       />
