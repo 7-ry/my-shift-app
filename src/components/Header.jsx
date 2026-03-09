@@ -15,7 +15,6 @@ const Header = ({
   selectedStaff,
   setSelectedStaff,
   handleSyncToGAS,
-  fetchAvailableWeeks,
   setShowCopyModal,
   setShowStaffModal,
   handleLogout,
