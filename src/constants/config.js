@@ -31,6 +31,8 @@ export const translations = {
     confirmStaffDelete: 'Delete this staff member?',
     doubleClickHint: 'Double-click to add',
     logout: 'Logout',
+    start: 'START',
+    end: 'END',
   },
   ja: {
     week: '週',
@@ -62,6 +64,8 @@ export const translations = {
     confirmStaffDelete: 'このスタッフを削除しますか？',
     doubleClickHint: 'ダブルクリックで追加',
     logout: 'ログアウト',
+    start: '開始時刻',
+    end: '終了時刻',
   },
 };
 
