@@ -105,8 +105,7 @@ const EditShiftModal = ({
                 </label>
                 <input
                   type="time"
-                  // 🌟 横幅に余裕ができたので px-4 に戻し、操作性を向上
-                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-4 py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center"
+                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center"
                   value={editingShift.startTime}
                   onChange={(e) =>
                     setEditingShift({
@@ -122,7 +121,7 @@ const EditShiftModal = ({
                 </label>
                 <input
                   type="time"
-                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-4 py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center"
+                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center"
                   value={editingShift.endTime}
                   onChange={(e) =>
                     setEditingShift({

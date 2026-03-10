@@ -89,7 +89,7 @@ const Header = ({
       <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
         <button
           onClick={() => setLang(lang === 'en' ? 'ja' : 'en')}
-          className="w-10 h-10 border-2 border-white/70 text-white rounded-full font-black text-xs hover:bg-white/10 transition-all uppercase"
+          className="w-10 h-10 border-2 border-slate-950 md:border-white/70 text-slate-950 md:text-white bg-white md:bg-transparent rounded-full font-black text-xs hover:bg-white/10 transition-all uppercase"
         >
           {lang}
         </button>
