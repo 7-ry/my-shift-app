@@ -55,7 +55,9 @@ const StaffManagementModal = ({
     if (!window.confirm(t.confirmStaffDelete)) return;
     setIsProcessing(true);
     try {
-      await deleteDoc(doc(db, 'staffs', id));
+      await updateDoc(doc(db, 'staffs', id), {
+        isActive: false,
+      });
       setStaffs(staffs.filter((s) => s.id !== id));
     } catch (e) {
       console.error(e);

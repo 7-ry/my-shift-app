@@ -3,26 +3,36 @@ import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
 const Login = ({ loginPw, setLoginPw, isProcessing, setIsProcessing }) => {
-  // 合言葉による共通ログインロジック
   const handleSecretLogin = async () => {
-    // 環境変数から期待値をロード
-    const targetPw = import.meta.env.VITE_UI_PASSCODE;
-    const fbAdminEmail = import.meta.env.VITE_FB_ADMIN_EMAIL;
-    const fbAdminPass = import.meta.env.VITE_FB_ADMIN_PASS;
+    if (isProcessing) return;
+    setIsProcessing(true);
+    let email = '';
+    let password = '';
+
+    const viewerPw = import.meta.env.VITE_UI_VIEWER_PASS;
+    const adminPw = import.meta.env.VITE_UI_PASS;
 
     // 1. UI入力値と環境変数の照合
-    if (loginPw === targetPw) {
-      try {
-        // 2. 照合成功時のみ、裏側でFirebaseの共通アカウントでサインイン
-        await signInWithEmailAndPassword(auth, fbAdminEmail, fbAdminPass);
-      } catch (error) {
-        console.error('Firebase Auth Error:', error.code);
-        alert(
-          'システム認証エラーが発生しました。Firebaseコンソールの設定を確認してください。'
-        );
-      }
+    if (loginPw === adminPw) {
+      email = import.meta.env.VITE_FB_ADMIN_EMAIL;
+      password = import.meta.env.VITE_FB_ADMIN_PASS;
+    } else if (loginPw === viewerPw) {
+      email = import.meta.env.VITE_FB_VIEWER_EMAIL;
+      password = import.meta.env.VITE_FB_VIEWER_PASS;
     } else {
-      alert('ユーザー名またはパスワードが正しくありません。');
+      alert('パスコードが正しくありません。');
+      setIsProcessing(false);
+      return;
+    }
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error('Firebase Auth Error:', error.code);
+      alert(
+        'システム認証エラーが発生しました。Firebaseコンソールの設定を確認してください。'
+      );
+    } finally {
+      setIsProcessing(false);
     }
   };
 

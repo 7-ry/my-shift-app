@@ -1,1 +1,11 @@
-現在はアプリで作ったシフトをデータベースに保存して、それをスプレッドシートのデータベースシートか引っ張ってきて、それを下にDashboardやscheduleシートに反映していますが、なにかより効率のいい方法はないですか？無駄を削ぎ落として、GASのコードやスプレッドシート上での処理を簡略化したい
+# 「どのファイルが変わったか」のリストだけ見たい場合
+
+git diff HEAD --stat
+
+# 特定のフォルダ（例: components）の差分だけ出したい場合
+
+git diff HEAD src/components/ > components_changes.diff
+
+# 前回のコミットから現在までの「すべての変更」を 1 つのファイルに書き出す
+
+git diff HEAD > current_changes.diff

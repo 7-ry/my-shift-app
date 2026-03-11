@@ -13,12 +13,14 @@ export const useShiftDrag = ({
   calcTotalHours,
   ROW_HEIGHT,
   DRAG_THRESHOLD,
+  isReadOnly,
 }) => {
   const [dragInfo, setDragInfo] = useState(null);
   const [isActuallyDragging, setIsActuallyDragging] = useState(false);
 
   // 1. ドラッグ開始：要素の保存と拘束
   const handlePointerDownShift = (e, shift, type) => {
+    if (isReadOnly) return;
     e.stopPropagation();
     // 🌟 追加：現在選択されていないシフトを触った場合、選択するだけでドラッグは開始しない
     if (selectedShiftId !== shift.id) {

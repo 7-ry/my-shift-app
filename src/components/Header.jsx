@@ -20,6 +20,7 @@ const Header = ({
   handleLogout,
   shifts,
   setShifts,
+  isReadOnly,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
@@ -132,50 +133,54 @@ const Header = ({
           </button>
           {showMenu && (
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in slide-in-from-top-2">
-              <button
-                onClick={handleSyncToGAS}
-                className="w-full text-left px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-3"
-              >
-                🔄 {t.sync}
-              </button>
-              <div className="h-px bg-slate-300 my-1"></div>
-              <button
-                onClick={() => {
-                  setShowCopyModal(true);
-                  setShowMenu(false);
-                }}
-                className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
-              >
-                📋 {t.copy}
-              </button>
-              <div className="h-px bg-slate-300 my-1"></div>
-              <button
-                onClick={() => {
-                  setShowStaffModal(true);
-                  setShowMenu(false);
-                }}
-                className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
-              >
-                👥 {t.manage}
-              </button>
-              <div className="h-px bg-slate-300 my-1"></div>
-              <button
-                onClick={async () => {
-                  if (window.confirm(t.confirmClear)) {
-                    setShowMenu(false);
-                    const b = writeBatch(db);
-                    shifts.forEach((s) => b.delete(doc(db, 'shifts', s.id)));
-                    await b.commit();
-                    setShifts([]);
-                  }
-                }}
-                className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
-              >
-                🗑️ {t.clear}
-              </button>
-              <div className="h-px bg-slate-300 my-1"></div>
-
-              {/* ★ログアウトボタンを追加 */}
+              {!isReadOnly && (
+                <>
+                  <button
+                    onClick={handleSyncToGAS}
+                    className="w-full text-left px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-3"
+                  >
+                    🔄 {t.sync}
+                  </button>
+                  <div className="h-px bg-slate-300 my-1"></div>
+                  <button
+                    onClick={() => {
+                      setShowCopyModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
+                  >
+                    📋 {t.copy}
+                  </button>
+                  <div className="h-px bg-slate-300 my-1"></div>
+                  <button
+                    onClick={() => {
+                      setShowStaffModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
+                  >
+                    👥 {t.manage}
+                  </button>
+                  <div className="h-px bg-slate-300 my-1"></div>
+                  <button
+                    onClick={async () => {
+                      if (window.confirm(t.confirmClear)) {
+                        setShowMenu(false);
+                        const b = writeBatch(db);
+                        shifts.forEach((s) =>
+                          b.delete(doc(db, 'shifts', s.id))
+                        );
+                        await b.commit();
+                        setShifts([]);
+                      }
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
+                  >
+                    🗑️ {t.clear}
+                  </button>
+                  <div className="h-px bg-slate-300 my-1"></div>
+                </>
+              )}
               <button
                 onClick={handleLogout}
                 className="w-full text-left px-4 py-3 text-sm font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"

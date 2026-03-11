@@ -11,6 +11,7 @@ const EditShiftModal = ({
   isProcessing,
   setIsProcessing,
   t,
+  isReadOnly,
 }) => {
   if (!editingShift) return null;
 
@@ -105,7 +106,10 @@ const EditShiftModal = ({
                 </label>
                 <input
                   type="time"
-                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center"
+                  readOnly={isReadOnly}
+                  className={`w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center ${
+                    isReadOnly ? 'opacity-70 cursor-not-allowed' : ''
+                  }`}
                   value={editingShift.startTime}
                   onChange={(e) =>
                     setEditingShift({
@@ -121,7 +125,10 @@ const EditShiftModal = ({
                 </label>
                 <input
                   type="time"
-                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center"
+                  readOnly={isReadOnly}
+                  className={`w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center ${
+                    isReadOnly ? 'opacity-70 cursor-not-allowed' : ''
+                  }`}
                   value={editingShift.endTime}
                   onChange={(e) =>
                     setEditingShift({
@@ -160,19 +167,31 @@ const EditShiftModal = ({
             </div>
 
             <div className="flex gap-4 pt-6">
-              <button
-                type="button"
-                onClick={onDelete}
-                className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs tracking-widest"
-              >
-                {t.delete}
-              </button>
-              <button
-                type="submit"
-                className="flex-[2] bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-slate-800 active:scale-95 transition-all uppercase text-xs tracking-widest"
-              >
-                {t.save}
-              </button>
+              {isReadOnly ? (
+                <button
+                  type="button"
+                  onClick={() => setEditingShift(null)}
+                  className="w-full bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase text-xs tracking-widest"
+                >
+                  {t.close || 'Close'}
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs tracking-widest"
+                  >
+                    {t.delete}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-[2] bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-slate-800 active:scale-95 transition-all uppercase text-xs tracking-widest"
+                  >
+                    {t.save}
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </div>

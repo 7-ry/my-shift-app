@@ -66,14 +66,21 @@ function App() {
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [loginPw, setLoginPw] = useState('');
   const [selectedShiftId, setSelectedShiftId] = useState(null); // 追加
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   // 認証状態の監視（ブラウザを閉じてもログインを維持するための処理）
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false); // 状態の確認が終わったらロード終了
+      if (u) {
+        setUser(u);
+        setIsReadOnly(u.email === import.meta.env.VITE_FB_VIEWER_EMAIL);
+      } else {
+        setUser(null);
+        setIsReadOnly(false);
+      }
+      setLoading(false); //
     });
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
   const handleLogout = async () => {
@@ -93,10 +100,14 @@ function App() {
   }, [lang]);
 
   const fetchStaffs = useCallback(async () => {
+    if (!user) return; // 🌟 ログイン前は実行しない
     const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
     const snapshot = await getDocs(q);
-    const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const list = snapshot.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((s) => s.isActive !== false);
     if (list.length === 0 && !hasInitialized.current) {
+      if (isReadOnly) return;
       hasInitialized.current = true;
       const initial = [
         { name: 'KANA', color: '#bae6fd', target: 39, order: 0 },
@@ -110,14 +121,17 @@ function App() {
       return;
     }
     setStaffs(list);
-    if (!selectedStaff && list.length > 0) setSelectedStaff(list[0].name);
-  }, [selectedStaff]);
+    if (list.length > 0) {
+      setSelectedStaff((prev) => prev || list[0].name);
+    }
+  }, [isReadOnly, user]);
 
   useEffect(() => {
     fetchStaffs();
   }, [fetchStaffs]);
 
   useEffect(() => {
+    if (!user) return; // 🌟 ログイン前は実行しない
     localStorage.setItem('lastViewedWeek', weekId);
     const fetchShifts = async () => {
       const q = query(collection(db, 'shifts'), where('weekId', '==', weekId));
@@ -125,7 +139,7 @@ function App() {
       setShifts(querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
     fetchShifts();
-  }, [weekId]);
+  }, [weekId, user]);
 
   const {
     handlePointerMove,
@@ -144,6 +158,7 @@ function App() {
     calcTotalHours,
     ROW_HEIGHT,
     DRAG_THRESHOLD,
+    isReadOnly,
   });
 
   const changeWeek = (offset) => {
@@ -156,8 +171,7 @@ function App() {
   const jumpToToday = () => setWeekId(getCurrentWeekId());
 
   const handleSyncToGAS = async () => {
-    if (isProcessing) return;
-
+    if (isProcessing || isReadOnly) return; // 🌟 isReadOnly を追加
     const gasUrl = import.meta.env.VITE_GAS_URL;
     if (!gasUrl) {
       alert('.env Error: VITE_GAS_URL');
@@ -200,7 +214,7 @@ function App() {
   };
 
   const handleAddShift = async (day, time, lane) => {
-    if (isProcessing || !selectedStaff) return;
+    if (isProcessing || !selectedStaff || isReadOnly) return; // 🌟 isReadOnly を追加
     setIsProcessing(true);
     const staffInfo = staffs.find((s) => s.name === selectedStaff);
     const startMins = timeToMins(time);
@@ -283,6 +297,7 @@ function App() {
         handleLogout={handleLogout}
         shifts={shifts}
         setShifts={setShifts}
+        isReadOnly={isReadOnly}
       />
       {/* DASHBOARD */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
@@ -342,6 +357,7 @@ function App() {
         isProcessing={isProcessing}
         setIsProcessing={setIsProcessing}
         t={t}
+        isReadOnly={isReadOnly}
       />
       <CopyWeekModal
         showCopyModal={showCopyModal}
