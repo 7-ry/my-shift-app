@@ -9,3 +9,15 @@ git diff HEAD src/components/ > components_changes.diff
 # 前回のコミットから現在までの「すべての変更」を 1 つのファイルに書き出す
 
 git diff HEAD > current_changes.diff
+
+#　デプロイ
+
+git pull origin main
+
+# リファクタリング内容をマージ
+
+git merge refactor-gas-logic
+
+# GitHub に送信（これで自動デプロイが走ります）
+
+git push origin main
