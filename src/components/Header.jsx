@@ -43,8 +43,8 @@ const Header = ({
       <div className="flex items-center gap-3 md:gap-5 min-w-fit">
         <div className="flex flex-col">
           <h1 className="text-lg md:text-xl font-black tracking-tight text-white leading-none">
-            SAKU
-            <span className="text-yellow-500 font-bold not-italic ml-1">
+            <span className="">SAKU</span>{' '}
+            <span className="text-yellow-500 font-bold not-italic">
               Burquitlam
             </span>{' '}
           </h1>

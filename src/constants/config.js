@@ -5,7 +5,7 @@ export const translations = {
     week: 'Week',
     today: 'Today',
     sync: 'Sync to Sheet',
-    copy: 'Copy from Past',
+    copy: 'Copy from',
     manage: 'Manage Staff',
     clear: 'Clear Week',
     target: 'Target',
@@ -35,12 +35,45 @@ export const translations = {
     end: 'END',
     lockTitle: 'Enable Editing',
     unlockTitle: 'Disable Editing',
+    template: 'Template',
+    shiftHistory: 'History: COPY FROM PAST',
+    saveAsTemplate: 'SAVE AS TEMPLATE',
+    checkingAccess: 'Checking Access...',
+    logoutConfirm: 'Are you sure you want to logout?',
+    syncSuccess: 'Sync completed successfully!',
+    syncError: 'Error occurred during sync.',
+    templateSaveSuccess: 'Success: "{name}" saved!',
+    templateSaveError: 'Failed to save template.',
+    templateApplySuccess: 'Template applied successfully!',
+    templateApplyError: 'Failed to apply template.',
+    templateDeleteConfirm: 'Delete this template?',
+    offDayWarning: '{name} is set to be OFF on {day}. Add anyway?',
+    saveCurrentWeek: 'Save Current Week',
+    templatePlaceholder: 'Template Name (e.g. Standard Winter)',
+    addStaffBtn: 'Add Staff',
+    defaultOffDays: 'Default Off Days',
+    close: 'Close',
+    syncSuccess: 'Sync completed successfully!', // 追加
+    syncError: 'Error occurred during sync.', // 追加
+    noTemplates: 'No templates saved.', // 追加
+    shiftsCount: '{count} Shifts', // 追加
+    staffsCount: '{count} Staffs', // 追加
+    copySelectedWeek: 'Copy Selected Week', // 追加
+    none: 'None', // 追加
+    minutes: 'mins', // 追加
+    hour: 'hour', // 追加
+    hours: 'hours', // 追加
+    unitHrs: 'hrs', // 追加
+    staffOnlyPortal: 'Staff Only Portal', // 追加
+    enterPasscode: 'ENTER PASSCODE', // 追加
+    pressEnterToLogin: 'Press Enter to Login', // 追加
+    offWatermark: 'OFF', // 追加
   },
   ja: {
     week: '週',
     today: '今日',
     sync: 'スプレッドシートへ同期',
-    copy: '過去からコピー',
+    copy: 'コピー元を選択',
     manage: 'スタッフ管理',
     clear: 'クリア',
     target: '目標',
@@ -70,6 +103,39 @@ export const translations = {
     end: '終了時刻',
     lockTitle: '編集を有効にする',
     unlockTitle: '編集を無効にする',
+    template: 'テンプレート',
+    shiftHistory: '履歴: 過去からコピー',
+    saveAsTemplate: 'テンプレートとして保存',
+    checkingAccess: 'アクセス権を確認中...',
+    logoutConfirm: 'ログアウトしますか？',
+    syncSuccess: '同期が完了しました！',
+    syncError: '同期中にエラーが発生しました。',
+    templateSaveSuccess: '成功：テンプレート「{name}」を保存しました',
+    templateSaveError: 'テンプレートの保存に失敗しました。',
+    templateApplySuccess: 'テンプレートを適用しました！',
+    templateApplyError: 'テンプレートの適用に失敗しました。',
+    templateDeleteConfirm: 'このテンプレートを削除しますか？',
+    offDayWarning: '{name} は {day} が休み設定です。追加しますか？',
+    saveCurrentWeek: '現在の週を保存',
+    templatePlaceholder: 'テンプレート名（例：基本の冬シフト）',
+    addStaffBtn: 'スタッフを追加',
+    defaultOffDays: '既定の休日',
+    close: '閉じる',
+    syncSuccess: '同期が完了しました！',
+    syncError: '同期中にエラーが発生しました。',
+    noTemplates: '保存されたテンプレートはありません。',
+    shiftsCount: '{count} シフト',
+    staffsCount: '{count} 名',
+    copySelectedWeek: '選択した週をコピー',
+    none: 'なし',
+    minutes: '分',
+    hour: '時間',
+    hours: '時間',
+    unitHrs: '時間',
+    staffOnlyPortal: 'スタッフ専用ポータル',
+    enterPasscode: 'パスコードを入力',
+    pressEnterToLogin: 'Enterキーでログイン',
+    offWatermark: '休日',
   },
 };
 

@@ -76,7 +76,7 @@ const StaffDetailModal = ({
                     {s.totalHours}
                   </div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
-                    hrs
+                    {t.unitHrs}
                   </div>
                 </div>
               </div>

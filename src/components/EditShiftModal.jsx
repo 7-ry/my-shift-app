@@ -155,10 +155,11 @@ const EditShiftModal = ({
                     })
                   }
                 >
-                  <option value="0">None (0h)</option>
-                  <option value="0.5">30 mins (0.5h)</option>
-                  <option value="1">1 hour (1.0h)</option>
-                  <option value="1.5">1.5 hours (1.5h)</option>
+                  <option value="0">{t.none} (0h)</option>
+                  <option value="0.5">30 {t.minutes} (0.5h)</option>{' '}
+                  <option value="1">1 {t.hour} (1.0h)</option>{' '}
+                  <option value="1.5">1.5 {t.hours} (1.5h)</option>{' '}
+                  <option value="2">2 {t.hours} (2.0h)</option>{' '}
                 </select>
                 <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
                   ▼

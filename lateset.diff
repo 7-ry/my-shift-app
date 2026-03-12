@@ -1,0 +1,1613 @@
+diff --git a/+current_changes.diff b/+current_changes.diff
+deleted file mode 100644
+index 3f824e5..0000000
+--- a/+current_changes.diff
++++ /dev/null
+@@ -1,482 +0,0 @@
+-diff --git a/.github/workflows/firebase-hosting-merge.yml b/.github/workflows/firebase-hosting-merge.yml
+-index 9343d79..49964fe 100644
+---- a/.github/workflows/firebase-hosting-merge.yml
+-+++ b/.github/workflows/firebase-hosting-merge.yml
+-@@ -21,11 +21,13 @@ jobs:
+-           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+-           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+-           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+--          VITE_UI_USERID: ${{ secrets.VITE_UI_USERID }}
+--          VITE_UI_PASSCODE: ${{ secrets.VITE_UI_PASSCODE }}
+-+          VITE_UI_PASSE: ${{ secrets.VITE_UI_PASS }}
+-+          VITE_UI_VIEWER_PASS: ${{ secrets.VITE_UI_VIEWER_PASS }}
+-           VITE_FB_ADMIN_EMAIL: ${{ secrets.VITE_FB_ADMIN_EMAIL }}
+-           VITE_FB_ADMIN_PASS: ${{ secrets.VITE_FB_ADMIN_PASS }}
+-           VITE_GAS_URL: ${{ secrets.VITE_GAS_URL }}
+-+          VITE_FB_VIEWER_EMAIL: ${{ secrets.VITE_FB_VIEWER_EMAIL }}
+-+          VITE_FB_VIEWER_PASS: ${{ secrets.VITE_FB_VIEWER_PASS }}
+- 
+-       - uses: FirebaseExtended/action-hosting-deploy@v0
+-         with:
+-diff --git a/.github/workflows/firebase-hosting-pull-request.yml b/.github/workflows/firebase-hosting-pull-request.yml
+-index 4e93eb3..a6e0434 100644
+---- a/.github/workflows/firebase-hosting-pull-request.yml
+-+++ b/.github/workflows/firebase-hosting-pull-request.yml
+-@@ -23,10 +23,12 @@ jobs:
+-           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+-           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+-           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+--          VITE_UI_USERID: ${{ secrets.VITE_UI_USERID }}
+--          VITE_UI_PASSCODE: ${{ secrets.VITE_UI_PASSCODE }}
+-+          VITE_UI_PASS: ${{ secrets.VITE_UI_PASS }}
+-+          VITE_UI_VIEWER_PASS: ${{ secrets.VITE_UI_VIEWER_PASS }}
+-           VITE_FB_ADMIN_EMAIL: ${{ secrets.VITE_FB_ADMIN_EMAIL }}
+-           VITE_FB_ADMIN_PASS: ${{ secrets.VITE_FB_ADMIN_PASS }}
+-+          VITE_FB_VIEWER_EMAIL: ${{ secrets.VITE_FB_VIEWER_EMAIL }}
+-+          VITE_FB_VIEWER_PASS: ${{ secrets.VITE_FB_VIEWER_PASS }}
+-           VITE_GAS_URL: ${{ secrets.VITE_GAS_URL }}
+- 
+-       - uses: FirebaseExtended/action-hosting-deploy@v0
+-diff --git a/current_changes.diff b/current_changes.diff
+-index 4410b9f..e69de29 100644
+---- a/current_changes.diff
+-+++ b/current_changes.diff
+-@@ -1,418 +0,0 @@
+--diff --git a/memo.md b/memo.md
+--index 5b29731..0d0fbe9 100644
+----- a/memo.md
+--+++ b/memo.md
+--@@ -1 +1,11 @@
+---現在はアプリで作ったシフトをデータベースに保存して、それをスプレッドシートのデータベースシートか引っ張ってきて、それを下にDashboardやscheduleシートに反映していますが、なにかより効率のいい方法はないですか？無駄を削ぎ落として、GASのコードやスプレッドシート上での処理を簡略化したい
+--\ No newline at end of file
+--+# 「どのファイルが変わったか」のリストだけ見たい場合
+--+
+--+git diff HEAD --stat
+--+
+--+# 特定のフォルダ（例: components）の差分だけ出したい場合
+--+
+--+git diff HEAD src/components/ > components_changes.diff
+--+
+--+# 前回のコミットから現在までの「すべての変更」を 1 つのファイルに書き出す
+--+
+--+git diff HEAD > current_changes.diff
+--diff --git a/src/App.jsx b/src/App.jsx
+--index ff7204d..ae61935 100644
+----- a/src/App.jsx
+--+++ b/src/App.jsx
+--@@ -66,14 +66,21 @@ function App() {
+--   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
+--   const [loginPw, setLoginPw] = useState('');
+--   const [selectedShiftId, setSelectedShiftId] = useState(null); // 追加
+--+  const [isReadOnly, setIsReadOnly] = useState(false);
+-- 
+--   // 認証状態の監視（ブラウザを閉じてもログインを維持するための処理）
+--   useEffect(() => {
+--     const unsubscribe = onAuthStateChanged(auth, (u) => {
+---      setUser(u);
+---      setLoading(false); // 状態の確認が終わったらロード終了
+--+      if (u) {
+--+        setUser(u);
+--+        setIsReadOnly(u.email === import.meta.env.VITE_FB_VIEWER_EMAIL);
+--+      } else {
+--+        setUser(null);
+--+        setIsReadOnly(false);
+--+      }
+--+      setLoading(false); //
+--     });
+---    return unsubscribe;
+--+    return () => unsubscribe();
+--   }, []);
+-- 
+--   const handleLogout = async () => {
+--@@ -93,10 +100,14 @@ function App() {
+--   }, [lang]);
+-- 
+--   const fetchStaffs = useCallback(async () => {
+--+    if (!user) return; // 🌟 ログイン前は実行しない
+--     const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
+--     const snapshot = await getDocs(q);
+---    const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+--+    const list = snapshot.docs
+--+      .map((d) => ({ id: d.id, ...d.data() }))
+--+      .filter((s) => s.isActive !== false);
+--     if (list.length === 0 && !hasInitialized.current) {
+--+      if (isReadOnly) return;
+--       hasInitialized.current = true;
+--       const initial = [
+--         { name: 'KANA', color: '#bae6fd', target: 39, order: 0 },
+--@@ -110,14 +121,17 @@ function App() {
+--       return;
+--     }
+--     setStaffs(list);
+---    if (!selectedStaff && list.length > 0) setSelectedStaff(list[0].name);
+---  }, [selectedStaff]);
+--+    if (list.length > 0) {
+--+      setSelectedStaff((prev) => prev || list[0].name);
+--+    }
+--+  }, [isReadOnly, user]);
+-- 
+--   useEffect(() => {
+--     fetchStaffs();
+--   }, [fetchStaffs]);
+-- 
+--   useEffect(() => {
+--+    if (!user) return; // 🌟 ログイン前は実行しない
+--     localStorage.setItem('lastViewedWeek', weekId);
+--     const fetchShifts = async () => {
+--       const q = query(collection(db, 'shifts'), where('weekId', '==', weekId));
+--@@ -125,7 +139,7 @@ function App() {
+--       setShifts(querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+--     };
+--     fetchShifts();
+---  }, [weekId]);
+--+  }, [weekId, user]);
+-- 
+--   const {
+--     handlePointerMove,
+--@@ -144,6 +158,7 @@ function App() {
+--     calcTotalHours,
+--     ROW_HEIGHT,
+--     DRAG_THRESHOLD,
+--+    isReadOnly,
+--   });
+-- 
+--   const changeWeek = (offset) => {
+--@@ -156,8 +171,7 @@ function App() {
+--   const jumpToToday = () => setWeekId(getCurrentWeekId());
+-- 
+--   const handleSyncToGAS = async () => {
+---    if (isProcessing) return;
+---
+--+    if (isProcessing || isReadOnly) return; // 🌟 isReadOnly を追加
+--     const gasUrl = import.meta.env.VITE_GAS_URL;
+--     if (!gasUrl) {
+--       alert('.env Error: VITE_GAS_URL');
+--@@ -200,7 +214,7 @@ function App() {
+--   };
+-- 
+--   const handleAddShift = async (day, time, lane) => {
+---    if (isProcessing || !selectedStaff) return;
+--+    if (isProcessing || !selectedStaff || isReadOnly) return; // 🌟 isReadOnly を追加
+--     setIsProcessing(true);
+--     const staffInfo = staffs.find((s) => s.name === selectedStaff);
+--     const startMins = timeToMins(time);
+--@@ -283,6 +297,7 @@ function App() {
+--         handleLogout={handleLogout}
+--         shifts={shifts}
+--         setShifts={setShifts}
+--+        isReadOnly={isReadOnly}
+--       />
+--       {/* DASHBOARD */}
+--       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
+--@@ -342,6 +357,7 @@ function App() {
+--         isProcessing={isProcessing}
+--         setIsProcessing={setIsProcessing}
+--         t={t}
+--+        isReadOnly={isReadOnly}
+--       />
+--       <CopyWeekModal
+--         showCopyModal={showCopyModal}
+--diff --git a/src/components/EditShiftModal.jsx b/src/components/EditShiftModal.jsx
+--index 733e7c2..d429322 100644
+----- a/src/components/EditShiftModal.jsx
+--+++ b/src/components/EditShiftModal.jsx
+--@@ -11,6 +11,7 @@ const EditShiftModal = ({
+--   isProcessing,
+--   setIsProcessing,
+--   t,
+--+  isReadOnly,
+-- }) => {
+--   if (!editingShift) return null;
+-- 
+--@@ -105,7 +106,10 @@ const EditShiftModal = ({
+--                 </label>
+--                 <input
+--                   type="time"
+---                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center"
+--+                  readOnly={isReadOnly}
+--+                  className={`w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center ${
+--+                    isReadOnly ? 'opacity-70 cursor-not-allowed' : ''
+--+                  }`}
+--                   value={editingShift.startTime}
+--                   onChange={(e) =>
+--                     setEditingShift({
+--@@ -121,7 +125,10 @@ const EditShiftModal = ({
+--                 </label>
+--                 <input
+--                   type="time"
+---                  className="w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center"
+--+                  readOnly={isReadOnly}
+--+                  className={`w-full bg-slate-50 border-2 border-transparent rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center ${
+--+                    isReadOnly ? 'opacity-70 cursor-not-allowed' : ''
+--+                  }`}
+--                   value={editingShift.endTime}
+--                   onChange={(e) =>
+--                     setEditingShift({
+--@@ -160,19 +167,31 @@ const EditShiftModal = ({
+--             </div>
+-- 
+--             <div className="flex gap-4 pt-6">
+---              <button
+---                type="button"
+---                onClick={onDelete}
+---                className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs tracking-widest"
+---              >
+---                {t.delete}
+---              </button>
+---              <button
+---                type="submit"
+---                className="flex-[2] bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-slate-800 active:scale-95 transition-all uppercase text-xs tracking-widest"
+---              >
+---                {t.save}
+---              </button>
+--+              {isReadOnly ? (
+--+                <button
+--+                  type="button"
+--+                  onClick={() => setEditingShift(null)}
+--+                  className="w-full bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-xl active:scale-95 transition-all uppercase text-xs tracking-widest"
+--+                >
+--+                  {t.close || 'Close'}
+--+                </button>
+--+              ) : (
+--+                <>
+--+                  <button
+--+                    type="button"
+--+                    onClick={onDelete}
+--+                    className="flex-1 bg-rose-50 text-rose-600 font-black py-5 rounded-[24px] transition-all hover:bg-rose-100 active:scale-95 uppercase text-xs tracking-widest"
+--+                  >
+--+                    {t.delete}
+--+                  </button>
+--+                  <button
+--+                    type="submit"
+--+                    className="flex-[2] bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-slate-800 active:scale-95 transition-all uppercase text-xs tracking-widest"
+--+                  >
+--+                    {t.save}
+--+                  </button>
+--+                </>
+--+              )}
+--             </div>
+--           </form>
+--         </div>
+--diff --git a/src/components/Header.jsx b/src/components/Header.jsx
+--index 4c5a2ee..743ba05 100644
+----- a/src/components/Header.jsx
+--+++ b/src/components/Header.jsx
+--@@ -20,6 +20,7 @@ const Header = ({
+--   handleLogout,
+--   shifts,
+--   setShifts,
+--+  isReadOnly,
+-- }) => {
+--   const [showMenu, setShowMenu] = useState(false);
+--   const menuRef = useRef(null);
+--@@ -132,50 +133,54 @@ const Header = ({
+--           </button>
+--           {showMenu && (
+--             <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 overflow-hidden ring-1 ring-black/5 animate-in slide-in-from-top-2">
+---              <button
+---                onClick={handleSyncToGAS}
+---                className="w-full text-left px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-3"
+---              >
+---                🔄 {t.sync}
+---              </button>
+---              <div className="h-px bg-slate-300 my-1"></div>
+---              <button
+---                onClick={() => {
+---                  setShowCopyModal(true);
+---                  setShowMenu(false);
+---                }}
+---                className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
+---              >
+---                📋 {t.copy}
+---              </button>
+---              <div className="h-px bg-slate-300 my-1"></div>
+---              <button
+---                onClick={() => {
+---                  setShowStaffModal(true);
+---                  setShowMenu(false);
+---                }}
+---                className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
+---              >
+---                👥 {t.manage}
+---              </button>
+---              <div className="h-px bg-slate-300 my-1"></div>
+---              <button
+---                onClick={async () => {
+---                  if (window.confirm(t.confirmClear)) {
+---                    setShowMenu(false);
+---                    const b = writeBatch(db);
+---                    shifts.forEach((s) => b.delete(doc(db, 'shifts', s.id)));
+---                    await b.commit();
+---                    setShifts([]);
+---                  }
+---                }}
+---                className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
+---              >
+---                🗑️ {t.clear}
+---              </button>
+---              <div className="h-px bg-slate-300 my-1"></div>
+---
+---              {/* ★ログアウトボタンを追加 */}
+--+              {!isReadOnly && (
+--+                <>
+--+                  <button
+--+                    onClick={handleSyncToGAS}
+--+                    className="w-full text-left px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 flex items-center gap-3"
+--+                  >
+--+                    🔄 {t.sync}
+--+                  </button>
+--+                  <div className="h-px bg-slate-300 my-1"></div>
+--+                  <button
+--+                    onClick={() => {
+--+                      setShowCopyModal(true);
+--+                      setShowMenu(false);
+--+                    }}
+--+                    className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
+--+                  >
+--+                    📋 {t.copy}
+--+                  </button>
+--+                  <div className="h-px bg-slate-300 my-1"></div>
+--+                  <button
+--+                    onClick={() => {
+--+                      setShowStaffModal(true);
+--+                      setShowMenu(false);
+--+                    }}
+--+                    className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 flex items-center gap-3"
+--+                  >
+--+                    👥 {t.manage}
+--+                  </button>
+--+                  <div className="h-px bg-slate-300 my-1"></div>
+--+                  <button
+--+                    onClick={async () => {
+--+                      if (window.confirm(t.confirmClear)) {
+--+                        setShowMenu(false);
+--+                        const b = writeBatch(db);
+--+                        shifts.forEach((s) =>
+--+                          b.delete(doc(db, 'shifts', s.id))
+--+                        );
+--+                        await b.commit();
+--+                        setShifts([]);
+--+                      }
+--+                    }}
+--+                    className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
+--+                  >
+--+                    🗑️ {t.clear}
+--+                  </button>
+--+                  <div className="h-px bg-slate-300 my-1"></div>
+--+                </>
+--+              )}
+--               <button
+--                 onClick={handleLogout}
+--                 className="w-full text-left px-4 py-3 text-sm font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
+--diff --git a/src/components/Login.jsx b/src/components/Login.jsx
+--index ecc3673..b9ba669 100644
+----- a/src/components/Login.jsx
+--+++ b/src/components/Login.jsx
+--@@ -3,26 +3,36 @@ import { auth } from '../firebase';
+-- import { signInWithEmailAndPassword } from 'firebase/auth';
+-- 
+-- const Login = ({ loginPw, setLoginPw, isProcessing, setIsProcessing }) => {
+---  // 合言葉による共通ログインロジック
+--   const handleSecretLogin = async () => {
+---    // 環境変数から期待値をロード
+---    const targetPw = import.meta.env.VITE_UI_PASSCODE;
+---    const fbAdminEmail = import.meta.env.VITE_FB_ADMIN_EMAIL;
+---    const fbAdminPass = import.meta.env.VITE_FB_ADMIN_PASS;
+--+    if (isProcessing) return;
+--+    setIsProcessing(true);
+--+    let email = '';
+--+    let password = '';
+--+
+--+    const viewerPw = import.meta.env.VITE_UI_VIEWER_PASS;
+--+    const adminPw = import.meta.env.VITE_UI_PASS;
+-- 
+--     // 1. UI入力値と環境変数の照合
+---    if (loginPw === targetPw) {
+---      try {
+---        // 2. 照合成功時のみ、裏側でFirebaseの共通アカウントでサインイン
+---        await signInWithEmailAndPassword(auth, fbAdminEmail, fbAdminPass);
+---      } catch (error) {
+---        console.error('Firebase Auth Error:', error.code);
+---        alert(
+---          'システム認証エラーが発生しました。Firebaseコンソールの設定を確認してください。'
+---        );
+---      }
+--+    if (loginPw === adminPw) {
+--+      email = import.meta.env.VITE_FB_ADMIN_EMAIL;
+--+      password = import.meta.env.VITE_FB_ADMIN_PASS;
+--+    } else if (loginPw === viewerPw) {
+--+      email = import.meta.env.VITE_FB_VIEWER_EMAIL;
+--+      password = import.meta.env.VITE_FB_VIEWER_PASS;
+--     } else {
+---      alert('ユーザー名またはパスワードが正しくありません。');
+--+      alert('パスコードが正しくありません。');
+--+      setIsProcessing(false);
+--+      return;
+--+    }
+--+    try {
+--+      await signInWithEmailAndPassword(auth, email, password);
+--+    } catch (error) {
+--+      console.error('Firebase Auth Error:', error.code);
+--+      alert(
+--+        'システム認証エラーが発生しました。Firebaseコンソールの設定を確認してください。'
+--+      );
+--+    } finally {
+--+      setIsProcessing(false);
+--     }
+--   };
+-- 
+--diff --git a/src/components/StaffManagementModal.jsx b/src/components/StaffManagementModal.jsx
+--index 05fb9ec..78c771c 100644
+----- a/src/components/StaffManagementModal.jsx
+--+++ b/src/components/StaffManagementModal.jsx
+--@@ -55,7 +55,9 @@ const StaffManagementModal = ({
+--     if (!window.confirm(t.confirmStaffDelete)) return;
+--     setIsProcessing(true);
+--     try {
+---      await deleteDoc(doc(db, 'staffs', id));
+--+      await updateDoc(doc(db, 'staffs', id), {
+--+        isActive: false,
+--+      });
+--       setStaffs(staffs.filter((s) => s.id !== id));
+--     } catch (e) {
+--       console.error(e);
+--diff --git a/src/hooks/useShiftDrag.js b/src/hooks/useShiftDrag.js
+--index fb16cba..701f8bb 100644
+----- a/src/hooks/useShiftDrag.js
+--+++ b/src/hooks/useShiftDrag.js
+--@@ -13,12 +13,14 @@ export const useShiftDrag = ({
+--   calcTotalHours,
+--   ROW_HEIGHT,
+--   DRAG_THRESHOLD,
+--+  isReadOnly,
+-- }) => {
+--   const [dragInfo, setDragInfo] = useState(null);
+--   const [isActuallyDragging, setIsActuallyDragging] = useState(false);
+-- 
+--   // 1. ドラッグ開始：要素の保存と拘束
+--   const handlePointerDownShift = (e, shift, type) => {
+--+    if (isReadOnly) return;
+--     e.stopPropagation();
+--     // 🌟 追加：現在選択されていないシフトを触った場合、選択するだけでドラッグは開始しない
+--     if (selectedShiftId !== shift.id) {
+-diff --git a/memo.md b/memo.md
+-index 0d0fbe9..d989a99 100644
+---- a/memo.md
+-+++ b/memo.md
+-@@ -9,3 +9,15 @@ git diff HEAD src/components/ > components_changes.diff
+- # 前回のコミットから現在までの「すべての変更」を 1 つのファイルに書き出す
+- 
+- git diff HEAD > current_changes.diff
+-+
+-+#　デプロイ
+-+
+-+git pull origin main
+-+
+-+# リファクタリング内容をマージ
+-+
+-+git merge refactor-gas-logic
+-+
+-+# GitHub に送信（これで自動デプロイが走ります）
+-+
+-+git push origin main
+diff --git a/.tmp.driveupload/123 b/.tmp.driveupload/123
+deleted file mode 100644
+index 738c725..0000000
+--- a/.tmp.driveupload/123
++++ /dev/null
+@@ -1 +0,0 @@
+-ref: refs/heads/feat/ui-refinement-and-lock
+diff --git a/.tmp.driveupload/127 b/.tmp.driveupload/127
+deleted file mode 100644
+index e50bbde..0000000
+--- a/.tmp.driveupload/127
++++ /dev/null
+@@ -1,137 +0,0 @@
+-0000000000000000000000000000000000000000 f5026a538ddeb934b7ede0ad6cab10c0517c18a9 7-ry <ryushin0714@gmail.com> 1772715987 -0800	commit (initial): Init
+-f5026a538ddeb934b7ede0ad6cab10c0517c18a9 0000000000000000000000000000000000000000 7-ry <ryushin0714@gmail.com> 1772716112 -0800	Branch: renamed refs/heads/main to refs/heads/main
+-f5026a538ddeb934b7ede0ad6cab10c0517c18a9 f5026a538ddeb934b7ede0ad6cab10c0517c18a9 7-ry <ryushin0714@gmail.com> 1772716112 -0800	Branch: renamed refs/heads/main to refs/heads/main
+-f5026a538ddeb934b7ede0ad6cab10c0517c18a9 7749b5d6b06f756906216f7d7ac1d1b2c48f6fe6 7-ry <ryushin0714@gmail.com> 1772718764 -0800	commit: Change-Staff
+-7749b5d6b06f756906216f7d7ac1d1b2c48f6fe6 bdaff23140618c8418a5b86e02d79ab7010881e1 7-ry <ryushin0714@gmail.com> 1772719216 -0800	commit: Change - Action menu
+-bdaff23140618c8418a5b86e02d79ab7010881e1 cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7-ry <ryushin0714@gmail.com> 1772719526 -0800	commit: Revised - Week options
+-cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7-ry <ryushin0714@gmail.com> 1772720323 -0800	checkout: moving from main to UI
+-cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7-ry <ryushin0714@gmail.com> 1772720648 -0800	checkout: moving from UI to UI
+-cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7749b5d6b06f756906216f7d7ac1d1b2c48f6fe6 7-ry <ryushin0714@gmail.com> 1772720808 -0800	checkout: moving from UI to UI-New
+-7749b5d6b06f756906216f7d7ac1d1b2c48f6fe6 cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7-ry <ryushin0714@gmail.com> 1772720943 -0800	checkout: moving from UI-New to UI
+-cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 9e4423f629cc7f85308084f1ec0e695aa0b7fc10 7-ry <ryushin0714@gmail.com> 1772721352 -0800	commit: Revised-UI-totalHour
+-9e4423f629cc7f85308084f1ec0e695aa0b7fc10 97c082bba7767afb2bf31298880f9c54bf5f28e1 7-ry <ryushin0714@gmail.com> 1772721938 -0800	commit: Revised-Header
+-97c082bba7767afb2bf31298880f9c54bf5f28e1 b1dafc3f63b356169349afdefd67245b8215f88a 7-ry <ryushin0714@gmail.com> 1772722225 -0800	commit: Revised-cellphone friendly
+-b1dafc3f63b356169349afdefd67245b8215f88a cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7-ry <ryushin0714@gmail.com> 1772722322 -0800	checkout: moving from UI to main
+-cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7-ry <ryushin0714@gmail.com> 1772722348 -0800	checkout: moving from main to GeneralFunctions
+-cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 e6767b051de9c922aa65577fdb1effa158c0fd4c 7-ry <ryushin0714@gmail.com> 1772722589 -0800	commit: Revised-EditShift-Save
+-e6767b051de9c922aa65577fdb1effa158c0fd4c bdb5cef01eb3304fd13ec31f0c2db228060bfcd1 7-ry <ryushin0714@gmail.com> 1772722876 -0800	commit: Revised-StaffEdit
+-bdb5cef01eb3304fd13ec31f0c2db228060bfcd1 cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7-ry <ryushin0714@gmail.com> 1772723248 -0800	checkout: moving from GeneralFunctions to main
+-cd62b3b9142b59ae35fa7f997dd82a11b40a3c72 7b3fc12653b5aedb8de37c971bfa4a225b19b55b 7-ry <ryushin0714@gmail.com> 1772723257 -0800	pull: Fast-forward
+-7b3fc12653b5aedb8de37c971bfa4a225b19b55b 8b5c5b27ee55aef2d1a25b2ecde44fb3a4aa7938 7-ry <ryushin0714@gmail.com> 1772724940 -0800	commit: APIfix
+-8b5c5b27ee55aef2d1a25b2ecde44fb3a4aa7938 cacf5edb5e323a080be92012d4a25001fea68cee 7-ry <ryushin0714@gmail.com> 1772725283 -0800	commit: Revised-resolved conflicts
+-cacf5edb5e323a080be92012d4a25001fea68cee fdefecaa98fd7b2dad56c9d594a0fb0aa7e050fc 7-ry <ryushin0714@gmail.com> 1772725894 -0800	pull --tags origin main: Fast-forward
+-fdefecaa98fd7b2dad56c9d594a0fb0aa7e050fc 319196a4ffcd010125d77fb4bacdbf711fd34290 7-ry <ryushin0714@gmail.com> 1772726109 -0800	commit: gitignore added
+-319196a4ffcd010125d77fb4bacdbf711fd34290 2e7aa6d8aedb01266aa696bed4862291fd1d2696 7-ry <ryushin0714@gmail.com> 1772726225 -0800	commit: Remove .env from tracking and update .gitignore
+-2e7aa6d8aedb01266aa696bed4862291fd1d2696 35050072bacca1c112895c11c3d8bcf15f99fa66 7-ry <ryushin0714@gmail.com> 1772756221 -0800	commit: some function added and connected to github for auto deploy
+-35050072bacca1c112895c11c3d8bcf15f99fa66 90515a42fb2950145113420ce34028b87f3c7ecb 7-ry <ryushin0714@gmail.com> 1772756923 -0800	commit: general setting modified
+-90515a42fb2950145113420ce34028b87f3c7ecb 76d73992c3b0386c6f7a0a8a33095faa3bef948b 7-ry <ryushin0714@gmail.com> 1772757159 -0800	commit: general settings modified
+-76d73992c3b0386c6f7a0a8a33095faa3bef948b 76d73992c3b0386c6f7a0a8a33095faa3bef948b 7-ry <ryushin0714@gmail.com> 1772819153 -0800	checkout: moving from main to main
+-76d73992c3b0386c6f7a0a8a33095faa3bef948b 76d73992c3b0386c6f7a0a8a33095faa3bef948b 7-ry <ryushin0714@gmail.com> 1772819154 -0800	checkout: moving from main to refactor-gas-logic
+-76d73992c3b0386c6f7a0a8a33095faa3bef948b 76d73992c3b0386c6f7a0a8a33095faa3bef948b 7-ry <ryushin0714@gmail.com> 1772819701 -0800	checkout: moving from refactor-gas-logic to main
+-76d73992c3b0386c6f7a0a8a33095faa3bef948b 66624df7263b0e4c24546e5532d62585e7b914b5 7-ry <ryushin0714@gmail.com> 1772819727 -0800	commit: docs: backup current GAS code before refactoring
+-66624df7263b0e4c24546e5532d62585e7b914b5 76d73992c3b0386c6f7a0a8a33095faa3bef948b 7-ry <ryushin0714@gmail.com> 1772819843 -0800	checkout: moving from main to refactor-gas-logic
+-76d73992c3b0386c6f7a0a8a33095faa3bef948b 66624df7263b0e4c24546e5532d62585e7b914b5 7-ry <ryushin0714@gmail.com> 1772820475 -0800	checkout: moving from refactor-gas-logic to main
+-66624df7263b0e4c24546e5532d62585e7b914b5 b72e9c8d0658d200b032795b0eb76e49a063d494 7-ry <ryushin0714@gmail.com> 1772821463 -0800	commit: ci: Gemini AIによる自動コードレビューワークフローの導入
+-b72e9c8d0658d200b032795b0eb76e49a063d494 76d73992c3b0386c6f7a0a8a33095faa3bef948b 7-ry <ryushin0714@gmail.com> 1772821470 -0800	checkout: moving from main to refactor-gas-logic
+-76d73992c3b0386c6f7a0a8a33095faa3bef948b b72e9c8d0658d200b032795b0eb76e49a063d494 7-ry <ryushin0714@gmail.com> 1772821506 -0800	merge main: Fast-forward
+-b72e9c8d0658d200b032795b0eb76e49a063d494 b72e9c8d0658d200b032795b0eb76e49a063d494 Ryu14n <ryushin0714@gmail.com> 1772821666 -0800	checkout: moving from refactor-gas-logic to main
+-b72e9c8d0658d200b032795b0eb76e49a063d494 bdb5cef01eb3304fd13ec31f0c2db228060bfcd1 Ryu14n <ryushin0714@gmail.com> 1772821669 -0800	checkout: moving from main to GeneralFunctions
+-bdb5cef01eb3304fd13ec31f0c2db228060bfcd1 b72e9c8d0658d200b032795b0eb76e49a063d494 7-ry <ryushin0714@gmail.com> 1772822068 -0800	checkout: moving from GeneralFunctions to main
+-b72e9c8d0658d200b032795b0eb76e49a063d494 b72e9c8d0658d200b032795b0eb76e49a063d494 7-ry <ryushin0714@gmail.com> 1772822097 -0800	checkout: moving from main to refactor-gas-logic
+-b72e9c8d0658d200b032795b0eb76e49a063d494 b72e9c8d0658d200b032795b0eb76e49a063d494 7-ry <ryushin0714@gmail.com> 1772822147 -0800	checkout: moving from refactor-gas-logic to main
+-b72e9c8d0658d200b032795b0eb76e49a063d494 b72e9c8d0658d200b032795b0eb76e49a063d494 7-ry <ryushin0714@gmail.com> 1772822159 -0800	checkout: moving from main to refactor-gas-logic
+-b72e9c8d0658d200b032795b0eb76e49a063d494 bdb5cef01eb3304fd13ec31f0c2db228060bfcd1 7-ry <ryushin0714@gmail.com> 1772822175 -0800	checkout: moving from refactor-gas-logic to GeneralFunctions
+-bdb5cef01eb3304fd13ec31f0c2db228060bfcd1 bdb5cef01eb3304fd13ec31f0c2db228060bfcd1 7-ry <ryushin0714@gmail.com> 1772822297 -0800	checkout: moving from GeneralFunctions to GeneralFunctions
+-bdb5cef01eb3304fd13ec31f0c2db228060bfcd1 b72e9c8d0658d200b032795b0eb76e49a063d494 7-ry <ryushin0714@gmail.com> 1772822303 -0800	checkout: moving from GeneralFunctions to refactor-gas-logic
+-b72e9c8d0658d200b032795b0eb76e49a063d494 3198e80d94713c0cd5ab4c0ccb5fdb6c1e296de6 7-ry <ryushin0714@gmail.com> 1772824264 -0800	commit: refactor: update sync logic and add debug logs
+-3198e80d94713c0cd5ab4c0ccb5fdb6c1e296de6 ae3c746de927545f3f43fb6d459b20106409e65e 7-ry <ryushin0714@gmail.com> 1772824889 -0800	commit: feat: スプレッドシート描画ロジックの高度化（重複クロップ・境界クリップ）
+-ae3c746de927545f3f43fb6d459b20106409e65e 2f836f3f2bcadaea4015b31de7e9f0ddfcb025bb 7-ry <ryushin0714@gmail.com> 1772825331 -0800	commit: chore: GAS側不要コードの完全整理と軽量化
+-2f836f3f2bcadaea4015b31de7e9f0ddfcb025bb d4b0eebd4d1c83fe903ee0f7cd7548242b4cd0ee 7-ry <ryushin0714@gmail.com> 1772825980 -0800	commit: feat: スタッフ管理機能の強化（インライン編集機能の実装）
+-d4b0eebd4d1c83fe903ee0f7cd7548242b4cd0ee 069b0995507fa117b744dc4384b2e43b49a2d992 7-ry <ryushin0714@gmail.com> 1772826262 -0800	commit: style: ダッシュボードUIの磨き上げとスタッフ詳細表示機能の追加
+-069b0995507fa117b744dc4384b2e43b49a2d992 0d8e9b3cfa34e4e2cba430b36db7275310042aed 7-ry <ryushin0714@gmail.com> 1772826910 -0800	commit: feat: 多言語対応(EN/JA)の導入とバンクーバー向けの表示最適化
+-0d8e9b3cfa34e4e2cba430b36db7275310042aed 6e0cb60744a637244881bcd33eda73351cd60b67 7-ry <ryushin0714@gmail.com> 1772827295 -0800	commit: feat: リブランド(Saku Burquitlam)とステータス表記の改善
+-6e0cb60744a637244881bcd33eda73351cd60b67 625d8669536220998b4f4c4ac84f5ffa7614ab6d 7-ry <ryushin0714@gmail.com> 1772827613 -0800	commit: style: ステータス表記を「ROOM / 余裕」へ変更し、稼働余力を可視化
+-625d8669536220998b4f4c4ac84f5ffa7614ab6d fb74fa994daaf891393de3ef6afd3d4210436212 7-ry <ryushin0714@gmail.com> 1772828137 -0800	commit: refactor: 操作性の向上（ダブルクリック追加・ヘッダー固定・ドラッグ感度調整）
+-fb74fa994daaf891393de3ef6afd3d4210436212 0534762f672151129300fdd93b6abdbfc665725d 7-ry <ryushin0714@gmail.com> 1772828547 -0800	commit: fix: タイムテーブルのヘッダー固定表示とデザインの微調整
+-0534762f672151129300fdd93b6abdbfc665725d 5e9d3500f6b0fb9b85883b2766416ed89740bb95 7-ry <ryushin0714@gmail.com> 1772830818 -0800	commit: fix: タイムテーブルコンテナの2軸固定（スティッキーヘッダー）の実装
+-5e9d3500f6b0fb9b85883b2766416ed89740bb95 fb74fa994daaf891393de3ef6afd3d4210436212 7-ry <ryushin0714@gmail.com> 1772830865 -0800	checkout: moving from refactor-gas-logic to fb74fa994daaf891393de3ef6afd3d4210436212
+-fb74fa994daaf891393de3ef6afd3d4210436212 5e9d3500f6b0fb9b85883b2766416ed89740bb95 7-ry <ryushin0714@gmail.com> 1772831022 -0800	checkout: moving from fb74fa994daaf891393de3ef6afd3d4210436212 to refactor-gas-logic
+-5e9d3500f6b0fb9b85883b2766416ed89740bb95 0534762f672151129300fdd93b6abdbfc665725d 7-ry <ryushin0714@gmail.com> 1772831080 -0800	checkout: moving from refactor-gas-logic to 0534762f672151129300fdd93b6abdbfc665725d
+-0534762f672151129300fdd93b6abdbfc665725d 5e9d3500f6b0fb9b85883b2766416ed89740bb95 7-ry <ryushin0714@gmail.com> 1772831090 -0800	checkout: moving from 0534762f672151129300fdd93b6abdbfc665725d to refactor-gas-logic
+-5e9d3500f6b0fb9b85883b2766416ed89740bb95 0534762f672151129300fdd93b6abdbfc665725d 7-ry <ryushin0714@gmail.com> 1772831419 -0800	reset: moving to 0534762
+-0534762f672151129300fdd93b6abdbfc665725d 5e9d3500f6b0fb9b85883b2766416ed89740bb95 7-ry <ryushin0714@gmail.com> 1772831435 -0800	pull --tags origin refactor-gas-logic: Fast-forward
+-5e9d3500f6b0fb9b85883b2766416ed89740bb95 f3adca1ccf84d59b54453cbe27b8ee2a2a77693b 7-ry <ryushin0714@gmail.com> 1772832499 -0800	commit: fix: タイムテーブルの2軸固定(Sticky)実装と日付表示不具合の修正
+-f3adca1ccf84d59b54453cbe27b8ee2a2a77693b e2356a690e6f2bb646d2d476bdc95ce4146f854d 7-ry <ryushin0714@gmail.com> 1772833171 -0800	commit: fix: タイムテーブルコンテナのスティッキー固定と高さの自動計算
+-e2356a690e6f2bb646d2d476bdc95ce4146f854d 36b3b92dc3bf13797be587df622acb076ce70ad6 7-ry <ryushin0714@gmail.com> 1772884148 -0800	commit: style: body要素のスクロール制御によるモバイル表示の安定化
+-36b3b92dc3bf13797be587df622acb076ce70ad6 b72e9c8d0658d200b032795b0eb76e49a063d494 7-ry <ryushin0714@gmail.com> 1772884500 -0800	checkout: moving from refactor-gas-logic to main
+-b72e9c8d0658d200b032795b0eb76e49a063d494 36b3b92dc3bf13797be587df622acb076ce70ad6 7-ry <ryushin0714@gmail.com> 1772884500 -0800	merge refactor-gas-logic: Fast-forward
+-36b3b92dc3bf13797be587df622acb076ce70ad6 36b3b92dc3bf13797be587df622acb076ce70ad6 7-ry <ryushin0714@gmail.com> 1772884720 -0800	checkout: moving from main to refactor-gas-logic
+-36b3b92dc3bf13797be587df622acb076ce70ad6 d4ca482a75a6df8a87c86cc1fe42a2af2a893416 7-ry <ryushin0714@gmail.com> 1772886402 -0800	commit: refactor: モバイル操作性の向上とドラッグ誤操作防止機能の実装
+-d4ca482a75a6df8a87c86cc1fe42a2af2a893416 36b3b92dc3bf13797be587df622acb076ce70ad6 7-ry <ryushin0714@gmail.com> 1772886504 -0800	checkout: moving from refactor-gas-logic to main
+-36b3b92dc3bf13797be587df622acb076ce70ad6 d4ca482a75a6df8a87c86cc1fe42a2af2a893416 7-ry <ryushin0714@gmail.com> 1772886505 -0800	merge refactor-gas-logic: Fast-forward
+-d4ca482a75a6df8a87c86cc1fe42a2af2a893416 d4ca482a75a6df8a87c86cc1fe42a2af2a893416 7-ry <ryushin0714@gmail.com> 1772886612 -0800	checkout: moving from main to refactor-gas-logic
+-d4ca482a75a6df8a87c86cc1fe42a2af2a893416 005b0019aeea90dce043060000aac83b6901e709 7-ry <ryushin0714@gmail.com> 1772887189 -0800	commit: fix: ドラッグ終了時の即時確定とポインター拘束の確実な解除
+-005b0019aeea90dce043060000aac83b6901e709 d4ca482a75a6df8a87c86cc1fe42a2af2a893416 7-ry <ryushin0714@gmail.com> 1772887202 -0800	checkout: moving from refactor-gas-logic to main
+-d4ca482a75a6df8a87c86cc1fe42a2af2a893416 005b0019aeea90dce043060000aac83b6901e709 7-ry <ryushin0714@gmail.com> 1772887203 -0800	merge refactor-gas-logic: Fast-forward
+-005b0019aeea90dce043060000aac83b6901e709 005b0019aeea90dce043060000aac83b6901e709 7-ry <ryushin0714@gmail.com> 1772889394 -0800	checkout: moving from main to refactor-gas-logic
+-005b0019aeea90dce043060000aac83b6901e709 72b9764baee188eb7bd911df2fd51613ed47153e 7-ry <ryushin0714@gmail.com> 1772893590 -0800	commit: feat: 環境変数を活用した2段階認証ログインシステムの実装
+-72b9764baee188eb7bd911df2fd51613ed47153e cc83f671765d8459342de54206326cd5d0ffba02 7-ry <ryushin0714@gmail.com> 1772896542 -0800	commit: feat: 環境変数を活用したセキュアな合言葉ログインの実装
+-cc83f671765d8459342de54206326cd5d0ffba02 66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa 7-ry <ryushin0714@gmail.com> 1772897035 -0800	commit: chore: 環境変数を追加定義
+-66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa 005b0019aeea90dce043060000aac83b6901e709 7-ry <ryushin0714@gmail.com> 1772897053 -0800	checkout: moving from refactor-gas-logic to main
+-005b0019aeea90dce043060000aac83b6901e709 f1837d6cfdbca8d0a0b75065cced7cf9e005142a 7-ry <ryushin0714@gmail.com> 1772897053 -0800	pull origin main: Fast-forward
+-f1837d6cfdbca8d0a0b75065cced7cf9e005142a 66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa 7-ry <ryushin0714@gmail.com> 1772897248 -0800	checkout: moving from main to refactor-gas-logic
+-66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa f1837d6cfdbca8d0a0b75065cced7cf9e005142a 7-ry <ryushin0714@gmail.com> 1772897264 -0800	checkout: moving from refactor-gas-logic to main
+-f1837d6cfdbca8d0a0b75065cced7cf9e005142a 66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa 7-ry <ryushin0714@gmail.com> 1772897278 -0800	checkout: moving from main to refactor-gas-logic
+-66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa f1837d6cfdbca8d0a0b75065cced7cf9e005142a 7-ry <ryushin0714@gmail.com> 1772897292 -0800	checkout: moving from refactor-gas-logic to main
+-f1837d6cfdbca8d0a0b75065cced7cf9e005142a 66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa 7-ry <ryushin0714@gmail.com> 1772897312 -0800	checkout: moving from main to refactor-gas-logic
+-66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa f1837d6cfdbca8d0a0b75065cced7cf9e005142a 7-ry <ryushin0714@gmail.com> 1772897350 -0800	checkout: moving from refactor-gas-logic to main
+-f1837d6cfdbca8d0a0b75065cced7cf9e005142a 66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa 7-ry <ryushin0714@gmail.com> 1772897382 -0800	checkout: moving from main to refactor-gas-logic
+-66e1c03a6b7bcabb7ebc08dcce4975e19d7e59fa 05e2da4593736cc7e5a0d526422bb86382c094cf 7-ry <ryushin0714@gmail.com> 1772898379 -0800	commit: feat: 環境変数を活用したセキュアな合言葉ログインの実装
+-05e2da4593736cc7e5a0d526422bb86382c094cf f1837d6cfdbca8d0a0b75065cced7cf9e005142a 7-ry <ryushin0714@gmail.com> 1772898413 -0800	checkout: moving from refactor-gas-logic to main
+-f1837d6cfdbca8d0a0b75065cced7cf9e005142a d3954134d8a15d4966651da9bc8393004219b015 7-ry <ryushin0714@gmail.com> 1772898535 -0800	commit (merge): Merge branch 'refactor-gas-logic'
+-d3954134d8a15d4966651da9bc8393004219b015 05e2da4593736cc7e5a0d526422bb86382c094cf 7-ry <ryushin0714@gmail.com> 1772901341 -0800	checkout: moving from main to refactor-gas-logic
+-05e2da4593736cc7e5a0d526422bb86382c094cf fa4fbcacfcd5b26fb8ace3f2b468b86f9c3c96b0 7-ry <ryushin0714@gmail.com> 1772901715 -0800	commit: style: ヘッダーをダークテーマ（Slate-900）に刷新し、全体的な質感向上
+-fa4fbcacfcd5b26fb8ace3f2b468b86f9c3c96b0 a4ca61d1de1a86530baf866c484c4db635ad443b 7-ry <ryushin0714@gmail.com> 1772929506 -0800	commit: refactor: 主要コンポーネント(Header, Dashboard, ShiftTable)の切り出し完了"
+-a4ca61d1de1a86530baf866c484c4db635ad443b d3954134d8a15d4966651da9bc8393004219b015 7-ry <ryushin0714@gmail.com> 1772929539 -0800	checkout: moving from refactor-gas-logic to main
+-d3954134d8a15d4966651da9bc8393004219b015 495392427b105dfdba1a6deb818c74250a0bd9c7 7-ry <ryushin0714@gmail.com> 1772929547 -0800	commit (merge): Merge branch 'refactor-gas-logic'
+-495392427b105dfdba1a6deb818c74250a0bd9c7 a4ca61d1de1a86530baf866c484c4db635ad443b 7-ry <ryushin0714@gmail.com> 1772932125 -0800	checkout: moving from main to refactor-gas-logic
+-a4ca61d1de1a86530baf866c484c4db635ad443b a4ca61d1de1a86530baf866c484c4db635ad443b 7-ry <ryushin0714@gmail.com> 1772973746 -0700	checkout: moving from refactor-gas-logic to refactor-gas-logic
+-a4ca61d1de1a86530baf866c484c4db635ad443b 7783a3ba7a702f50805b6f4d0950aa2af32b400c 7-ry <ryushin0714@gmail.com> 1772975201 -0700	commit: refactor: モーダル群を独立したコンポーネントへ切り出し
+-7783a3ba7a702f50805b6f4d0950aa2af32b400c b45590004ab26ee8d52b0624111aeab4f623e4d8 7-ry <ryushin0714@gmail.com> 1772980148 -0700	commit: refactor: Firebaseロジックの各コンポーネントへの完全委譲と自律化
+-b45590004ab26ee8d52b0624111aeab4f623e4d8 daf819913a84976b9e00fc63bb92469594bb5dd5 7-ry <ryushin0714@gmail.com> 1772982339 -0700	commit: refactor: コンポーネントの完全モジュール化とGAS連携ロジックの外部化
+-daf819913a84976b9e00fc63bb92469594bb5dd5 616eb68529932c87fe1aad7778dc41d4a4e60016 7-ry <ryushin0714@gmail.com> 1773008873 -0700	commit: refactor: アプリケーション構造のモジュール化とコピー機能のバグ修正
+-616eb68529932c87fe1aad7778dc41d4a4e60016 a2c5fd9623b37040744dc4898104f4710c9f55db 7-ry <ryushin0714@gmail.com> 1773009612 -0700	commit: refactor: UIデザインの完全復元とFirebaseロジックの統合・最適化
+-a2c5fd9623b37040744dc4898104f4710c9f55db 8e2e827e592d2e62d1bbe7ec898f99098ae4fcfe 7-ry <ryushin0714@gmail.com> 1773011486 -0700	commit: feat: シフトテーブルの操作性向上とUIインタラクションの強化
+-8e2e827e592d2e62d1bbe7ec898f99098ae4fcfe f768851db7efff64d0531d90045b7c1c4bc920a7 7-ry <ryushin0714@gmail.com> 1773075025 -0700	commit: refactor: ログイン、スタッフ管理、ドラッグ操作のコンポーネント・フック化を完遂
+-f768851db7efff64d0531d90045b7c1c4bc920a7 4d5827be5ef2e928babf6a65dd7ea172bb0dcc1f 7-ry <ryushin0714@gmail.com> 1773075494 -0700	commit: refactor: 定数および多言語辞書の外部ファイル化 (Step 3)
+-4d5827be5ef2e928babf6a65dd7ea172bb0dcc1f 412288fefc82a5a7f0d6f5049dbf498c1353196a 7-ry <ryushin0714@gmail.com> 1773075955 -0700	commit: refactor: アプリケーション構造のモジュール化とカプセル化を完全遂行
+-412288fefc82a5a7f0d6f5049dbf498c1353196a 4696e7c69c6f67298975c453273579ac1b8f9b72 7-ry <ryushin0714@gmail.com> 1773076306 -0700	commit: refactor: アプリケーション設計のリファクタリングを完遂 (Final Step)
+-4696e7c69c6f67298975c453273579ac1b8f9b72 495392427b105dfdba1a6deb818c74250a0bd9c7 7-ry <ryushin0714@gmail.com> 1773076390 -0700	checkout: moving from refactor-gas-logic to main
+-495392427b105dfdba1a6deb818c74250a0bd9c7 82b51cf9fffd832f9569fafb032013a6afb3dfe7 7-ry <ryushin0714@gmail.com> 1773076414 -0700	commit (merge): Merge branch 'refactor-gas-logic'
+-82b51cf9fffd832f9569fafb032013a6afb3dfe7 4696e7c69c6f67298975c453273579ac1b8f9b72 7-ry <ryushin0714@gmail.com> 1773076789 -0700	checkout: moving from main to refactor-gas-logic
+-4696e7c69c6f67298975c453273579ac1b8f9b72 82b51cf9fffd832f9569fafb032013a6afb3dfe7 7-ry <ryushin0714@gmail.com> 1773077311 -0700	checkout: moving from refactor-gas-logic to main
+-82b51cf9fffd832f9569fafb032013a6afb3dfe7 dce3b0bf3360893df84dbf43f7b62eb20ed85aa6 7-ry <ryushin0714@gmail.com> 1773077366 -0700	commit: fix: EditShiftModal のスマホ表示におけるレイアウト崩れを修正
+-dce3b0bf3360893df84dbf43f7b62eb20ed85aa6 fa4fbcacfcd5b26fb8ace3f2b468b86f9c3c96b0 7-ry <ryushin0714@gmail.com> 1773094663 -0700	checkout: moving from main to fa4fbcacfcd5b26fb8ace3f2b468b86f9c3c96b0
+-fa4fbcacfcd5b26fb8ace3f2b468b86f9c3c96b0 dce3b0bf3360893df84dbf43f7b62eb20ed85aa6 7-ry <ryushin0714@gmail.com> 1773095051 -0700	checkout: moving from fa4fbcacfcd5b26fb8ace3f2b468b86f9c3c96b0 to main
+-dce3b0bf3360893df84dbf43f7b62eb20ed85aa6 5b87b459c1a24ea6575dfd640951dba7ab73bda4 7-ry <ryushin0714@gmail.com> 1773095131 -0700	commit: fix: EditShiftModal のスマホ表示におけるレイアウト崩れを修正
+-5b87b459c1a24ea6575dfd640951dba7ab73bda4 4696e7c69c6f67298975c453273579ac1b8f9b72 7-ry <ryushin0714@gmail.com> 1773096000 -0700	checkout: moving from main to refactor-gas-logic
+-4696e7c69c6f67298975c453273579ac1b8f9b72 5b87b459c1a24ea6575dfd640951dba7ab73bda4 7-ry <ryushin0714@gmail.com> 1773096123 -0700	merge main: Fast-forward
+-5b87b459c1a24ea6575dfd640951dba7ab73bda4 8ff0a0198f42c942ab84b8265de8b237a976eb09 7-ry <ryushin0714@gmail.com> 1773117014 -0700	commit: refactor: EditShiftModal をレスポンシブなレイアウトに改善
+-8ff0a0198f42c942ab84b8265de8b237a976eb09 5b87b459c1a24ea6575dfd640951dba7ab73bda4 7-ry <ryushin0714@gmail.com> 1773117035 -0700	checkout: moving from refactor-gas-logic to main
+-5b87b459c1a24ea6575dfd640951dba7ab73bda4 8ff0a0198f42c942ab84b8265de8b237a976eb09 7-ry <ryushin0714@gmail.com> 1773117035 -0700	merge refactor-gas-logic: Fast-forward
+-8ff0a0198f42c942ab84b8265de8b237a976eb09 8ff0a0198f42c942ab84b8265de8b237a976eb09 7-ry <ryushin0714@gmail.com> 1773179644 -0700	checkout: moving from main to refactor-gas-logic
+-8ff0a0198f42c942ab84b8265de8b237a976eb09 6747b0014fd4ea949817f345bb67305191bb44d9 7-ry <ryushin0714@gmail.com> 1773181421 -0700	commit: fix: モバイル表示のUI改善 (言語ボタンの配色とシフト編集レイアウト)
+-6747b0014fd4ea949817f345bb67305191bb44d9 8ff0a0198f42c942ab84b8265de8b237a976eb09 7-ry <ryushin0714@gmail.com> 1773181449 -0700	checkout: moving from refactor-gas-logic to main
+-8ff0a0198f42c942ab84b8265de8b237a976eb09 6747b0014fd4ea949817f345bb67305191bb44d9 7-ry <ryushin0714@gmail.com> 1773181450 -0700	merge refactor-gas-logic: Fast-forward
+-6747b0014fd4ea949817f345bb67305191bb44d9 6747b0014fd4ea949817f345bb67305191bb44d9 7-ry <ryushin0714@gmail.com> 1773232389 -0700	checkout: moving from main to refactor-gas-logic
+-6747b0014fd4ea949817f345bb67305191bb44d9 7032f2f1cb6d547eb23f2c9267f1d7aa815894aa 7-ry <ryushin0714@gmail.com> 1773239669 -0700	commit: feat: 閲覧専用モードの実装とスタッフデータの論理削除対応
+-7032f2f1cb6d547eb23f2c9267f1d7aa815894aa 6747b0014fd4ea949817f345bb67305191bb44d9 7-ry <ryushin0714@gmail.com> 1773239918 -0700	checkout: moving from refactor-gas-logic to main
+-6747b0014fd4ea949817f345bb67305191bb44d9 7032f2f1cb6d547eb23f2c9267f1d7aa815894aa 7-ry <ryushin0714@gmail.com> 1773239919 -0700	merge refactor-gas-logic: Fast-forward
+-7032f2f1cb6d547eb23f2c9267f1d7aa815894aa 4052ed0b19bd2f683457527d931e0199a49ba3e9 7-ry <ryushin0714@gmail.com> 1773240817 -0700	commit: fix: 認証情報の追加
+-4052ed0b19bd2f683457527d931e0199a49ba3e9 124c22b93c09316d4aa00c99578ac5b0af5826b8 7-ry <ryushin0714@gmail.com> 1773241186 -0700	commit: fix: タイポ修正
+-124c22b93c09316d4aa00c99578ac5b0af5826b8 eb177f29405e37fffa3a789a7860d4e9d0fb6190 7-ry <ryushin0714@gmail.com> 1773241346 -0700	commit: fix: タイポ修正
+-eb177f29405e37fffa3a789a7860d4e9d0fb6190 7032f2f1cb6d547eb23f2c9267f1d7aa815894aa 7-ry <ryushin0714@gmail.com> 1773302134 -0700	checkout: moving from main to refactor-gas-logic
+-7032f2f1cb6d547eb23f2c9267f1d7aa815894aa eb177f29405e37fffa3a789a7860d4e9d0fb6190 7-ry <ryushin0714@gmail.com> 1773302162 -0700	checkout: moving from refactor-gas-logic to main
+-eb177f29405e37fffa3a789a7860d4e9d0fb6190 7032f2f1cb6d547eb23f2c9267f1d7aa815894aa 7-ry <ryushin0714@gmail.com> 1773304010 -0700	checkout: moving from main to refactor-gas-logic
+-7032f2f1cb6d547eb23f2c9267f1d7aa815894aa eb177f29405e37fffa3a789a7860d4e9d0fb6190 7-ry <ryushin0714@gmail.com> 1773304031 -0700	checkout: moving from refactor-gas-logic to main
+-eb177f29405e37fffa3a789a7860d4e9d0fb6190 eb177f29405e37fffa3a789a7860d4e9d0fb6190 7-ry <ryushin0714@gmail.com> 1773304068 -0700	checkout: moving from main to feat/ui-refinement-and-lock
+diff --git a/.tmp.driveupload/40041 b/.tmp.driveupload/40041
+deleted file mode 100644
+index 9f19744..0000000
+--- a/.tmp.driveupload/40041
++++ /dev/null
+@@ -1 +0,0 @@
+-0000000000000000000000000000000000000000 eb177f29405e37fffa3a789a7860d4e9d0fb6190 7-ry <ryushin0714@gmail.com> 1773304068 -0700	branch: Created from HEAD
+diff --git a/.tmp.driveupload/40045 b/.tmp.driveupload/40045
+deleted file mode 100644
+index 03e5cc7..0000000
+--- a/.tmp.driveupload/40045
++++ /dev/null
+@@ -1 +0,0 @@
+-eb177f29405e37fffa3a789a7860d4e9d0fb6190
+diff --git a/.tmp.driveupload/805 b/.tmp.driveupload/805
+deleted file mode 100644
+index 2bc7afd..0000000
+--- a/.tmp.driveupload/805
++++ /dev/null
+@@ -1,19 +0,0 @@
+-[core]
+-	repositoryformatversion = 0
+-	filemode = true
+-	bare = false
+-	logallrefupdates = true
+-	ignorecase = true
+-	precomposeunicode = true
+-[remote "origin"]
+-	url = https://github.com/7-ry/my-shift-app.git
+-	fetch = +refs/heads/*:refs/remotes/origin/*
+-[branch "main"]
+-	remote = origin
+-	merge = refs/heads/main
+-[branch "refactor-gas-logic"]
+-	vscode-merge-base = origin/main
+-	remote = origin
+-	merge = refs/heads/refactor-gas-logic
+-[branch "feat/ui-refinement-and-lock"]
+-	vscode-merge-base = origin/main
+diff --git a/current_changes.diff b/current_changes.diff
+index 71ad68a..74bfe4d 100644
+--- a/current_changes.diff
++++ b/current_changes.diff
+@@ -1,204 +0,0 @@
+-diff --git a/src/App.jsx b/src/App.jsx
+-index ed06a2d..1d044b6 100644
+---- a/src/App.jsx
+-+++ b/src/App.jsx
+-@@ -218,6 +218,16 @@ function App() {
+-     if (isProcessing || !selectedStaff || isReadOnly || isEditLocked) return; // 🌟 isReadOnly を追加
+-     setIsProcessing(true);
+-     const staffInfo = staffs.find((s) => s.name === selectedStaff);
+-+    const dayIndex = DAYS.indexOf(day); // 例: 'MON' -> 1
+-+    if (staffInfo?.offDays?.includes(dayIndex)) {
+-+      if (
+-+        !window.confirm(
+-+          `${selectedStaff} は ${day} が休み設定です。追加しますか？`
+-+        )
+-+      ) {
+-+        return;
+-+      }
+-+    }
+-     const startMins = timeToMins(time);
+-     const endStr = minsToTime(Math.min(startMins + 120, timeToMins('23:30')));
+-     const newShift = {
+-@@ -331,6 +341,8 @@ function App() {
+-           handlePointerUp={handlePointerUp}
+-           selectedShiftId={selectedShiftId}
+-           setSelectedShiftId={setSelectedShiftId}
+-+          staffs={staffs} // 🌟 追加
+-+          selectedStaff={selectedStaff} // 🌟 追加
+-         />
+-       </div>
+-       <StaffDetailModal
+-diff --git a/src/components/ShiftTable.jsx b/src/components/ShiftTable.jsx
+-index d378468..48181fb 100644
+---- a/src/components/ShiftTable.jsx
+-+++ b/src/components/ShiftTable.jsx
+-@@ -18,6 +18,8 @@ const ShiftTable = ({
+-   handlePointerUp,
+-   selectedShiftId,
+-   setSelectedShiftId,
+-+  staffs,
+-+  selectedStaff,
+- }) => {
+-   return (
+-     <div className="sticky top-16 md:top-[72px] z-30 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900 transition-all duration-300">
+-@@ -58,8 +60,24 @@ const ShiftTable = ({
+-                     {formatTime12(time)}
+-                   </span>
+-                 </td>
+--                {DAYS.map((day) =>
+--                  LANES.map((lane) => {
+-+                {DAYS.map((day) => {
+-+                  const dayIndexMap = {
+-+                    SUN: 0,
+-+                    MON: 1,
+-+                    TUE: 2,
+-+                    WED: 3,
+-+                    THU: 4,
+-+                    FRI: 5,
+-+                    SAT: 6,
+-+                  };
+-+                  const currentDayIdx = dayIndexMap[day];
+-+
+-+                  // 🌟 追加: スタッフ情報を LANES ループの外で取得（パフォーマンス向上）
+-+                  const staffInfo = staffs.find(
+-+                    (s) => s.name === selectedStaff
+-+                  );
+-+                  const isOffDay = staffInfo?.offDays?.includes(currentDayIdx);
+-+                  return LANES.map((lane) => {
+-                     const cellShifts = shifts.filter(
+-                       (s) =>
+-                         s.day === day &&
+-@@ -67,6 +85,7 @@ const ShiftTable = ({
+-                         timeToMins(s.startTime) >= timeToMins(time) &&
+-                         timeToMins(s.startTime) < timeToMins(time) + 30
+-                     );
+-+
+-                     return (
+-                       <td
+-                         key={`${day}-${time}-${lane}`}
+-@@ -81,9 +100,25 @@ const ShiftTable = ({
+-                           lane === 4
+-                             ? 'border-r-2 border-r-slate-200'
+-                             : 'border-r border-slate-50'
+--                        } p-0 hover:bg-blue-50/50 cursor-crosshair relative transition-colors`}
+-+                        } p-0 relative transition-colors ${
+-+                          /* 🌟 修正: 背景色を bg-rose-100/40 に変更して視認性をアップ */
+-+                          isOffDay
+-+                            ? 'bg-rose-100/60'
+-+                            : 'hover:bg-blue-50/50 cursor-crosshair'
+-+                        }`}
+-                         title={t.doubleClickHint}
+-                       >
+-+                        {isOffDay && time === '13:00' && lane === 1 && (
+-+                          <div
+-+                            className="absolute top-0 left-0 w-[400%] h-full flex items-center justify-center pointer-events-none select-none z-[30] opacity-30"
+-+                            style={{ pointerEvents: 'none' }}
+-+                          >
+-+                            <span className="text-rose-600 font-black text-7xl rotate-12 whitespace-nowrap tracking-tighter drop-shadow-sm">
+-+                              OFF
+-+                            </span>
+-+                          </div>
+-+                        )}
+-+
+-                         {cellShifts.map((shift) => {
+-                           // 🌟 ここで変数を定義（ReferenceErrorを解消）
+-                           const isSelected = selectedShiftId === shift.id;
+-@@ -204,8 +239,8 @@ const ShiftTable = ({
+-                         })}
+-                       </td>
+-                     );
+--                  })
+--                )}
+-+                  });
+-+                })}
+-               </tr>
+-             ))}
+-           </tbody>
+-diff --git a/src/components/StaffManagementModal.jsx b/src/components/StaffManagementModal.jsx
+-index 78c771c..a1850ab 100644
+---- a/src/components/StaffManagementModal.jsx
+-+++ b/src/components/StaffManagementModal.jsx
+-@@ -27,6 +27,7 @@ const StaffManagementModal = ({
+-     name: '',
+-     color: '#cbd5e1',
+-     target: 24,
+-+    offDays: [], // 🌟 追加
+-   });
+-   const [editingStaffId, setEditingStaffId] = useState(null);
+-   const [staffEditData, setStaffEditData] = useState({});
+-@@ -71,6 +72,7 @@ const StaffManagementModal = ({
+-       name: staff.name,
+-       color: staff.color,
+-       target: staff.target,
+-+      offDays: staff.offDays || [], // 🌟 追加（既存データがない場合は空配列）
+-     });
+-   };
+- 
+-@@ -142,6 +144,37 @@ const StaffManagementModal = ({
+-     setIsProcessing(false);
+-   };
+- 
+-+  // 🌟 共通の曜日選択ボタン用ロジック（コンポーネント内の return 前に置くと便利）
+-+  const renderDayToggles = (currentOffDays, onChange) => {
+-+    const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // 日〜土
+-+    return (
+-+      <div className="flex gap-1.5 mt-2">
+-+        {dayLabels.map((label, idx) => {
+-+          const isOff = currentOffDays.includes(idx);
+-+          return (
+-+            <button
+-+              key={idx}
+-+              type="button"
+-+              onClick={() => {
+-+                const next = isOff
+-+                  ? currentOffDays.filter((d) => d !== idx)
+-+                  : [...currentOffDays, idx];
+-+                onChange(next);
+-+              }}
+-+              className={`w-7 h-7 rounded-full text-[10px] font-black transition-all border-2 ${
+-+                isOff
+-+                  ? 'bg-rose-500 border-rose-600 text-white shadow-md'
+-+                  : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400'
+-+              }`}
+-+            >
+-+              {label}
+-+            </button>
+-+          );
+-+        })}
+-+      </div>
+-+    );
+-+  };
+-+
+-   return (
+-     <div
+-       className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
+-@@ -207,6 +240,14 @@ const StaffManagementModal = ({
+-                         }
+-                       />
+-                     </div>
+-+                    <div className="space-y-1.5">
+-+                      <label className="text-[11px] font-black text-slate-400 ml-1 uppercase tracking-widest">
+-+                        {t.offDays || 'Weekly Off Days'}
+-+                      </label>
+-+                      {renderDayToggles(staffEditData.offDays, (next) =>
+-+                        setStaffEditData({ ...staffEditData, offDays: next })
+-+                      )}
+-+                    </div>
+-                   </div>
+-                   <div className="flex items-center justify-between gap-6 pt-2">
+-                     <input
+-@@ -318,6 +359,14 @@ const StaffManagementModal = ({
+-               required
+-             />
+-           </div>
+-+          <div className="px-1">
+-+            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
+-+              Default Off Days
+-+            </label>
+-+            {renderDayToggles(newStaff.offDays, (next) =>
+-+              setNewStaff({ ...newStaff, offDays: next })
+-+            )}
+-+          </div>
+-           <div className="flex items-center gap-4">
+-             <input
+-               type="color"
+diff --git a/src/App.jsx b/src/App.jsx
+index 1d044b6..bcdc39b 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -85,7 +85,7 @@ function App() {
+   }, []);
+ 
+   const handleLogout = async () => {
+-    if (window.confirm('ログアウトしますか？')) {
++    if (window.confirm(t.logoutConfirm)) {
+       try {
+         await signOut(auth);
+         // signOut が成功すると onAuthStateChanged が検知して
+@@ -205,10 +205,10 @@ function App() {
+             getSheetCellByRow(day, row, lane, DAYS), // ★ DAYSを追加
+         },
+       });
+-      alert('Success!');
++      alert(t.syncSuccess);
+     } catch (error) {
+       console.error(error);
+-      alert('Error during sync');
++      alert(t.syncError);
+     } finally {
+       setIsProcessing(false);
+     }
+@@ -220,11 +220,10 @@ function App() {
+     const staffInfo = staffs.find((s) => s.name === selectedStaff);
+     const dayIndex = DAYS.indexOf(day); // 例: 'MON' -> 1
+     if (staffInfo?.offDays?.includes(dayIndex)) {
+-      if (
+-        !window.confirm(
+-          `${selectedStaff} は ${day} が休み設定です。追加しますか？`
+-        )
+-      ) {
++      const msg = t.offDayWarning
++        .replace('{name}', selectedStaff)
++        .replace('{day}', day);
++      if (!window.confirm(msg)) {
+         return;
+       }
+     }
+@@ -250,6 +249,31 @@ function App() {
+     setIsProcessing(false);
+   };
+ 
++  const handleSaveAsTemplate = async (templateName) => {
++    if (isProcessing || isReadOnly || !templateName || shifts.length === 0)
++      return;
++    setIsProcessing(true);
++    try {
++      // 🌟 保存用にデータをクリーンアップ（個別のIDやweekIdを除去）
++      const templateShifts = shifts.map(({ id, weekId, ...rest }) => rest);
++
++      await addDoc(collection(db, 'shiftTemplates'), {
++        name: templateName,
++        shifts: templateShifts,
++        createdAt: new Date(),
++        createdBy: user.email,
++        staffCount: [...new Set(shifts.map((s) => s.staffName))].length,
++      });
++
++      alert(t.templateSaveSuccess.replace('{name}', templateName));
++    } catch (e) {
++      console.error(e);
++      alert(t.templateSaveError);
++    } finally {
++      setIsProcessing(false);
++    }
++  };
++
+   const dashboardData = staffs.map((staff) => {
+     const total = shifts
+       .filter((s) => s.staffName === staff.name)
+@@ -270,7 +294,7 @@ function App() {
+         <div className="flex flex-col items-center gap-4">
+           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+           <p className="font-black text-slate-400 text-xs tracking-widest uppercase">
+-            Checking Access...
++            {t.checkingAccess}
+           </p>
+         </div>
+       </div>
+@@ -384,6 +408,8 @@ function App() {
+         setIsProcessing={setIsProcessing}
+         t={t}
+         lang={lang}
++        handleSaveAsTemplate={handleSaveAsTemplate} // 🌟 追加
++        shifts={shifts} // 🌟 現在のシフト数などを表示するために追加
+       />
+       {isProcessing && (
+         <div className="fixed inset-0 bg-white/40 backdrop-blur-[4px] z-[100] flex items-center justify-center transition-all duration-500">
+diff --git a/src/components/CopyWeekModal.jsx b/src/components/CopyWeekModal.jsx
+index 15e7ee1..e8b7c48 100644
+--- a/src/components/CopyWeekModal.jsx
++++ b/src/components/CopyWeekModal.jsx
+@@ -9,6 +9,7 @@ import {
+   doc,
+   orderBy,
+   limit,
++  deleteDoc, // 🌟 追加
+ } from 'firebase/firestore';
+ import { getWeekDisplayVerbose } from '../utils/helpers';
+ 
+@@ -20,27 +21,100 @@ const CopyWeekModal = ({
+   setIsProcessing,
+   t,
+   lang,
++  handleSaveAsTemplate, // 🌟 追加
++  shifts, // 🌟 追加
+ }) => {
+   const [availableWeeks, setAvailableWeeks] = useState([]);
+   const [selectedWeek, setSelectedWeek] = useState('');
++  const [templates, setTemplates] = useState([]); // 🌟 テンプレート一覧用
++  const [newTemplateName, setNewTemplateName] = useState(''); // 🌟 保存入力用
+ 
+-  // 存在する週のリストを取得
++  const fetchTemplates = async () => {
++    try {
++      const tempQ = query(
++        collection(db, 'shiftTemplates'),
++        orderBy('createdAt', 'desc')
++      );
++      const tempSnap = await getDocs(tempQ);
++      setTemplates(tempSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
++    } catch (e) {
++      console.error('Template fetch error:', e);
++    }
++  };
++
++  // 存在する週のリストとテンプレートの両方を取得
+   useEffect(() => {
+     if (showCopyModal) {
+       const fetchWeeks = async () => {
+-        const q = query(collection(db, 'shifts'), orderBy('day'), limit(500));
+-        const snap = await getDocs(q);
++        const weekQ = query(
++          collection(db, 'shifts'),
++          orderBy('day'),
++          limit(500)
++        );
++        const weekSnap = await getDocs(weekQ);
+         const weeks = [
+-          ...new Set(snap.docs.map((d) => d.data().weekId)),
++          ...new Set(weekSnap.docs.map((d) => d.data().weekId)),
+         ].filter((id) => id !== weekId);
+-        setAvailableWeeks(weeks.sort().reverse()); // 新しい順
++        setAvailableWeeks(weeks.sort().reverse());
+       };
++
+       fetchWeeks();
++      fetchTemplates(); // 🌟 初期表示時に実行
+     }
+   }, [showCopyModal, weekId]);
+ 
+-  // CopyWeekModal.jsx 内の executeCopy 関数を修正
++  // 🌟 テンプレートを適用する処理
++  const executeApplyTemplate = async (templateShifts) => {
++    if (
++      !window.confirm(t.confirmCopy || 'Apply this template to current week?')
++    )
++      return;
++
++    setIsProcessing(true);
++    try {
++      const batch = writeBatch(db);
++
++      // 1. 現週のクリーンアップ
++      const currentQ = query(
++        collection(db, 'shifts'),
++        where('weekId', '==', weekId)
++      );
++      const currentSnap = await getDocs(currentQ);
++      currentSnap.forEach((d) => batch.delete(d.ref));
+ 
++      // 2. テンプレートのデータを現在の週として投入
++      const newShifts = templateShifts.map((s) => {
++        const newDocRef = doc(collection(db, 'shifts'));
++        const data = { ...s, weekId: weekId };
++        batch.set(newDocRef, data);
++        return { id: newDocRef.id, ...data };
++      });
++
++      await batch.commit();
++      setShifts(newShifts);
++      setShowCopyModal(false);
++      alert(t.templateApplySuccess);
++    } catch (e) {
++      console.error(e);
++      alert(t.templateApplyError);
++    } finally {
++      setIsProcessing(false);
++    }
++  };
++
++  // 🌟 テンプレートを削除する処理
++  const handleDeleteTemplate = async (e, id) => {
++    e.stopPropagation();
++    if (!window.confirm(t.templateDeleteConfirm)) return;
++    try {
++      await deleteDoc(doc(db, 'shiftTemplates', id));
++      setTemplates((prev) => prev.filter((t) => t.id !== id));
++    } catch (e) {
++      console.error(e);
++    }
++  };
++
++  // 既存の過去週コピー処理
+   const executeCopy = async () => {
+     if (!selectedWeek) return;
+     if (!window.confirm(t.confirmCopy || 'Copy shifts to current week?'))
+@@ -49,8 +123,6 @@ const CopyWeekModal = ({
+     setIsProcessing(true);
+     try {
+       const batch = writeBatch(db);
+-
+-      // 1. 現在の週のデータを全削除（上書きするためのクリーンアップ）
+       const currentQ = query(
+         collection(db, 'shifts'),
+         where('weekId', '==', weekId)
+@@ -58,7 +130,6 @@ const CopyWeekModal = ({
+       const currentSnap = await getDocs(currentQ);
+       currentSnap.forEach((d) => batch.delete(d.ref));
+ 
+-      // 2. コピー元のデータを取得
+       const sourceQ = query(
+         collection(db, 'shifts'),
+         where('weekId', '==', selectedWeek)
+@@ -67,37 +138,19 @@ const CopyWeekModal = ({
+ 
+       const newShifts = [];
+       sourceSnap.forEach((docSnap) => {
+-        const sourceData = docSnap.data();
+-
+-        // 【重要】元のドキュメントの「メタデータ」や内部の「id」を混入させない
+-        // 純粋なデータのみを取り出し、weekId を現在の週に書き換える
+-        const { id: _oldId, ...cleanData } = sourceData;
+-
+-        // 【重要】新しいドキュメント参照を作成（ここで新しいランダムIDが発行される）
++        const { id: _oldId, ...cleanData } = docSnap.data();
+         const newDocRef = doc(collection(db, 'shifts'));
+-
+-        const duplicatedData = {
+-          ...cleanData,
+-          weekId: weekId, // 現在表示中の週IDをセット
+-        };
+-
+-        // 新しいドキュメントとして保存
++        const duplicatedData = { ...cleanData, weekId: weekId };
+         batch.set(newDocRef, duplicatedData);
+-
+-        // State更新用の配列にも新しいIDを含めて追加
+         newShifts.push({ id: newDocRef.id, ...duplicatedData });
+       });
+ 
+-      // 3. バッチ処理を一括実行
+       await batch.commit();
+-
+-      // 4. ローカルの shifts 状態を更新して即時反映
+       setShifts(newShifts);
+       setShowCopyModal(false);
+-      alert('Success! Shifts duplicated to this week.');
++      alert('Success!');
+     } catch (e) {
+-      console.error('Copy Error:', e);
+-      alert('Copy failed.');
++      console.error(e);
+     } finally {
+       setIsProcessing(false);
+     }
+@@ -111,43 +164,114 @@ const CopyWeekModal = ({
+       onClick={() => setShowCopyModal(false)}
+     >
+       <div
+-        className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-8 animate-in fade-in zoom-in duration-200"
++        className="bg-white rounded-[40px] shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden"
+         onClick={(e) => e.stopPropagation()}
+       >
+-        <h2 className="text-2xl font-black uppercase mb-6">{t.copy}</h2>
+-        <div className="space-y-4">
+-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+-            Select Source Week
+-          </p>
+-          <div className="max-h-60 overflow-y-auto space-y-2 custom-scrollbar">
+-            {availableWeeks.map((w) => (
++        <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
++          <h2 className="text-2xl font-black uppercase tracking-tight">
++            {t.copy}
++          </h2>
++          <button
++            onClick={() => setShowCopyModal(false)}
++            className="text-slate-400 font-bold"
++          >
++            ✕
++          </button>
++        </div>
++
++        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
++          {/* 🌟 1. 現在の週をテンプレートとして保存 */}
++          <div className="space-y-3">
++            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">
++              {t.saveCurrentWeek}
++            </h3>
++            <div className="bg-blue-50 p-5 rounded-[28px] border-2 border-blue-100 space-y-3">
++              <input
++                type="text"
++                placeholder={t.templatePlaceholder}
++                className="w-full px-4 py-3 rounded-2xl border-none font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"
++                value={newTemplateName}
++                onChange={(e) => setNewTemplateName(e.target.value)}
++              />
+               <button
+-                key={w}
+-                onClick={() => setSelectedWeek(w)}
+-                className={`w-full p-4 rounded-2xl text-left font-black transition-all ${
+-                  selectedWeek === w
+-                    ? 'bg-blue-600 text-white shadow-lg scale-[1.02]'
+-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+-                }`}
++                onClick={async () => {
++                  await handleSaveAsTemplate(newTemplateName);
++                  setNewTemplateName('');
++                  fetchTemplates();
++                }}
++                disabled={!newTemplateName || shifts.length === 0}
++                className="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 disabled:opacity-30 transition-all"
+               >
+-                {getWeekDisplayVerbose(w, lang)}
++                {t.saveAsTemplate}
+               </button>
+-            ))}
++            </div>
+           </div>
+-          <div className="flex gap-3 pt-6">
+-            <button
+-              onClick={() => setShowCopyModal(false)}
+-              className="flex-1 py-4 font-black text-slate-400 uppercase text-xs"
+-            >
+-              Cancel
+-            </button>
+-            <button
+-              onClick={executeCopy}
+-              disabled={!selectedWeek}
+-              className="flex-[2] bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-xl disabled:opacity-20 transition-all active:scale-95"
+-            >
+-              Copy Now
+-            </button>
++
++          {/* 🌟 2. 保存済みテンプレートから適用 */}
++          <div className="space-y-3">
++            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">
++              {t.template}
++            </h3>
++            <div className="space-y-2">
++              {templates.length === 0 && (
++                <p className="text-center py-4 text-slate-300 font-bold italic text-xs">
++                  {t.noTemplates}
++                </p>
++              )}
++              {templates.map((temp) => (
++                <div
++                  key={temp.id}
++                  onClick={() => executeApplyTemplate(temp.shifts)}
++                  className="group bg-slate-50 hover:bg-white hover:shadow-md border-2 border-transparent hover:border-slate-200 p-4 rounded-2xl cursor-pointer transition-all flex justify-between items-center"
++                >
++                  <div>
++                    <div className="font-black text-slate-800 text-sm uppercase">
++                      {temp.name}
++                    </div>
++                    <div className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">
++                      {t.shiftsCount.replace('{count}', temp.shifts.length)} ·{' '}
++                      {t.staffsCount.replace('{count}', temp.staffCount)}
++                    </div>
++                  </div>
++                  <button
++                    onClick={(e) => handleDeleteTemplate(e, temp.id)}
++                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-rose-500 transition-all"
++                  >
++                    🗑️
++                  </button>
++                </div>
++              ))}
++            </div>
++          </div>
++
++          {/* 3. 過去の週からコピー（既存機能） */}
++          <div className="space-y-3">
++            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">
++              {t.shiftHistory}
++            </h3>
++            <div className="grid grid-cols-1 gap-2">
++              {availableWeeks.slice(0, 5).map((w) => (
++                <button
++                  key={w}
++                  onClick={() => setSelectedWeek(w)}
++                  className={`w-full p-4 rounded-2xl text-left font-black transition-all text-xs ${
++                    selectedWeek === w
++                      ? 'bg-slate-900 text-white shadow-lg'
++                      : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50'
++                  }`}
++                >
++                  {getWeekDisplayVerbose(w, lang)}
++                </button>
++              ))}
++            </div>
++            {selectedWeek && (
++              <button
++                onClick={executeCopy}
++                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 mt-2"
++              >
++                {t.copySelectedWeek}
++              </button>
++            )}
+           </div>
+         </div>
+       </div>
+diff --git a/src/components/EditShiftModal.jsx b/src/components/EditShiftModal.jsx
+index d429322..d964f00 100644
+--- a/src/components/EditShiftModal.jsx
++++ b/src/components/EditShiftModal.jsx
+@@ -155,10 +155,11 @@ const EditShiftModal = ({
+                     })
+                   }
+                 >
+-                  <option value="0">None (0h)</option>
+-                  <option value="0.5">30 mins (0.5h)</option>
+-                  <option value="1">1 hour (1.0h)</option>
+-                  <option value="1.5">1.5 hours (1.5h)</option>
++                  <option value="0">{t.none} (0h)</option>
++                  <option value="0.5">30 {t.minutes} (0.5h)</option>{' '}
++                  <option value="1">1 {t.hour} (1.0h)</option>{' '}
++                  <option value="1.5">1.5 {t.hours} (1.5h)</option>{' '}
++                  <option value="2">2 {t.hours} (2.0h)</option>{' '}
+                 </select>
+                 <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                   ▼
+diff --git a/src/components/Header.jsx b/src/components/Header.jsx
+index 6990648..da36957 100644
+--- a/src/components/Header.jsx
++++ b/src/components/Header.jsx
+@@ -43,8 +43,8 @@ const Header = ({
+       <div className="flex items-center gap-3 md:gap-5 min-w-fit">
+         <div className="flex flex-col">
+           <h1 className="text-lg md:text-xl font-black tracking-tight text-white leading-none">
+-            SAKU
+-            <span className="text-yellow-500 font-bold not-italic ml-1">
++            <span className="">SAKU</span>{' '}
++            <span className="text-yellow-500 font-bold not-italic">
+               Burquitlam
+             </span>{' '}
+           </h1>
+diff --git a/src/components/StaffDetailModal.jsx b/src/components/StaffDetailModal.jsx
+index 522e94f..31b0bae 100644
+--- a/src/components/StaffDetailModal.jsx
++++ b/src/components/StaffDetailModal.jsx
+@@ -76,7 +76,7 @@ const StaffDetailModal = ({
+                     {s.totalHours}
+                   </div>
+                   <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+-                    hrs
++                    {t.unitHrs}
+                   </div>
+                 </div>
+               </div>
+diff --git a/src/components/StaffManagementModal.jsx b/src/components/StaffManagementModal.jsx
+index a1850ab..2673345 100644
+--- a/src/components/StaffManagementModal.jsx
++++ b/src/components/StaffManagementModal.jsx
+@@ -31,6 +31,7 @@ const StaffManagementModal = ({
+   });
+   const [editingStaffId, setEditingStaffId] = useState(null);
+   const [staffEditData, setStaffEditData] = useState({});
++  const [showAddForm, setShowAddForm] = useState(false);
+ 
+   if (!showStaffModal) return null;
+ 
+@@ -333,57 +334,103 @@ const StaffManagementModal = ({
+             </div>
+           ))}
+         </div>
+-        <form
+-          onSubmit={handleAddStaff}
+-          className="p-8 border-t bg-slate-900 space-y-5"
+-        >
+-          <div className="grid grid-cols-2 gap-4">
+-            <input
+-              type="text"
+-              placeholder={t.staffName}
+-              className="px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm uppercase placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
+-              value={newStaff.name}
+-              onChange={(e) =>
+-                setNewStaff({ ...newStaff, name: e.target.value.toUpperCase() })
+-              }
+-              required
+-            />
+-            <input
+-              type="number"
+-              placeholder={t.target}
+-              className="px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
+-              value={newStaff.target}
+-              onChange={(e) =>
+-                setNewStaff({ ...newStaff, target: Number(e.target.value) })
+-              }
+-              required
+-            />
+-          </div>
+-          <div className="px-1">
+-            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
+-              Default Off Days
+-            </label>
+-            {renderDayToggles(newStaff.offDays, (next) =>
+-              setNewStaff({ ...newStaff, offDays: next })
+-            )}
+-          </div>
+-          <div className="flex items-center gap-4">
+-            <input
+-              type="color"
+-              className="w-12 h-12 rounded-full cursor-pointer border-4 border-white/10 bg-transparent"
+-              value={newStaff.color}
+-              onChange={(e) =>
+-                setNewStaff({ ...newStaff, color: e.target.value })
+-              }
+-            />
++        {/* 🌟 修正ポイント: showAddForm の状態によって表示を切り替え */}
++        {!showAddForm ? (
++          /* 1. 通常時：追加ボタンのみ表示 */
++          <div className="p-6 border-t bg-slate-50 flex justify-center">
+             <button
+-              type="submit"
+-              className="flex-1 bg-white text-slate-900 rounded-2xl py-3 font-black uppercase text-sm hover:bg-blue-400 transition-all shadow-2xl active:scale-95 tracking-widest"
++              onClick={() => setShowAddForm(true)}
++              className="w-full max-w-xs bg-slate-900 text-white rounded-2xl py-4 font-black uppercase text-xs tracking-[0.2em] hover:bg-slate-800 transition-all shadow-lg active:scale-95"
+             >
+-              Add Staff
++              + {t.addStaffBtn}
+             </button>
+           </div>
+-        </form>
++        ) : (
++          /* 2. クリック後：入力フォームを表示 */
++          <form
++            onSubmit={async (e) => {
++              await handleAddStaff(e);
++              setShowAddForm(false); // 追加完了後に閉じる
++            }}
++            className="p-8 border-t bg-slate-900 space-y-6 animate-in slide-in-from-bottom duration-300"
++          >
++            <div className="flex justify-between items-center">
++              <h3 className="text-white text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
++                {t.newStaff}
++              </h3>
++              <button
++                type="button"
++                onClick={() => setShowAddForm(false)}
++                className="text-white/40 hover:text-white text-[10px] font-black uppercase tracking-widest transition-colors"
++              >
++                ✕ {t.cancel}
++              </button>
++            </div>
++
++            <div className="grid grid-cols-2 gap-4">
++              <div className="space-y-1.5">
++                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
++                  {t.staffName}
++                </label>
++                <input
++                  type="text"
++                  placeholder={t.staffName}
++                  className="w-full px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm uppercase placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
++                  value={newStaff.name}
++                  onChange={(e) =>
++                    setNewStaff({
++                      ...newStaff,
++                      name: e.target.value.toUpperCase(),
++                    })
++                  }
++                  required
++                />
++              </div>
++
++              <div className="space-y-1.5">
++                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
++                  {t.target}
++                </label>
++                <input
++                  type="number"
++                  placeholder={t.target}
++                  className="w-full px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
++                  value={newStaff.target}
++                  onChange={(e) =>
++                    setNewStaff({ ...newStaff, target: Number(e.target.value) })
++                  }
++                  required
++                />
++              </div>
++            </div>
++
++            <div className="px-1">
++              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
++                {t.defaultOffDays}
++              </label>
++              {renderDayToggles(newStaff.offDays, (next) =>
++                setNewStaff({ ...newStaff, offDays: next })
++              )}
++            </div>
++
++            <div className="flex items-center gap-4 pt-2">
++              <input
++                type="color"
++                className="w-12 h-12 rounded-full cursor-pointer border-4 border-white/10 bg-transparent flex-shrink-0"
++                value={newStaff.color}
++                onChange={(e) =>
++                  setNewStaff({ ...newStaff, color: e.target.value })
++                }
++              />
++              <button
++                type="submit"
++                className="flex-1 bg-white text-slate-900 rounded-2xl py-3.5 font-black uppercase text-xs hover:bg-blue-400 transition-all shadow-2xl active:scale-95 tracking-widest"
++              >
++                {t.addStaffBtn}
++              </button>
++            </div>
++          </form>
++        )}
+       </div>
+     </div>
+   );
+diff --git a/src/constants/config.js b/src/constants/config.js
+index a505ba9..e225cda 100644
+--- a/src/constants/config.js
++++ b/src/constants/config.js
+@@ -5,7 +5,7 @@ export const translations = {
+     week: 'Week',
+     today: 'Today',
+     sync: 'Sync to Sheet',
+-    copy: 'Copy from Past',
++    copy: 'Copy from',
+     manage: 'Manage Staff',
+     clear: 'Clear Week',
+     target: 'Target',
+@@ -35,12 +35,45 @@ export const translations = {
+     end: 'END',
+     lockTitle: 'Enable Editing',
+     unlockTitle: 'Disable Editing',
++    template: 'Template',
++    shiftHistory: 'History: COPY FROM PAST',
++    saveAsTemplate: 'SAVE AS TEMPLATE',
++    checkingAccess: 'Checking Access...',
++    logoutConfirm: 'Are you sure you want to logout?',
++    syncSuccess: 'Sync completed successfully!',
++    syncError: 'Error occurred during sync.',
++    templateSaveSuccess: 'Success: "{name}" saved!',
++    templateSaveError: 'Failed to save template.',
++    templateApplySuccess: 'Template applied successfully!',
++    templateApplyError: 'Failed to apply template.',
++    templateDeleteConfirm: 'Delete this template?',
++    offDayWarning: '{name} is set to be OFF on {day}. Add anyway?',
++    saveCurrentWeek: 'Save Current Week',
++    templatePlaceholder: 'Template Name (e.g. Standard Winter)',
++    addStaffBtn: 'Add Staff',
++    defaultOffDays: 'Default Off Days',
++    close: 'Close',
++    syncSuccess: 'Sync completed successfully!', // 追加
++    syncError: 'Error occurred during sync.', // 追加
++    noTemplates: 'No templates saved.', // 追加
++    shiftsCount: '{count} Shifts', // 追加
++    staffsCount: '{count} Staffs', // 追加
++    copySelectedWeek: 'Copy Selected Week', // 追加
++    none: 'None', // 追加
++    minutes: 'mins', // 追加
++    hour: 'hour', // 追加
++    hours: 'hours', // 追加
++    unitHrs: 'hrs', // 追加
++    staffOnlyPortal: 'Staff Only Portal', // 追加
++    enterPasscode: 'ENTER PASSCODE', // 追加
++    pressEnterToLogin: 'Press Enter to Login', // 追加
++    offWatermark: 'OFF', // 追加
+   },
+   ja: {
+     week: '週',
+     today: '今日',
+     sync: 'スプレッドシートへ同期',
+-    copy: '過去からコピー',
++    copy: 'コピー元を選択',
+     manage: 'スタッフ管理',
+     clear: 'クリア',
+     target: '目標',
+@@ -70,6 +103,39 @@ export const translations = {
+     end: '終了時刻',
+     lockTitle: '編集を有効にする',
+     unlockTitle: '編集を無効にする',
++    template: 'テンプレート',
++    shiftHistory: '履歴: 過去からコピー',
++    saveAsTemplate: 'テンプレートとして保存',
++    checkingAccess: 'アクセス権を確認中...',
++    logoutConfirm: 'ログアウトしますか？',
++    syncSuccess: '同期が完了しました！',
++    syncError: '同期中にエラーが発生しました。',
++    templateSaveSuccess: '成功：テンプレート「{name}」を保存しました',
++    templateSaveError: 'テンプレートの保存に失敗しました。',
++    templateApplySuccess: 'テンプレートを適用しました！',
++    templateApplyError: 'テンプレートの適用に失敗しました。',
++    templateDeleteConfirm: 'このテンプレートを削除しますか？',
++    offDayWarning: '{name} は {day} が休み設定です。追加しますか？',
++    saveCurrentWeek: '現在の週を保存',
++    templatePlaceholder: 'テンプレート名（例：基本の冬シフト）',
++    addStaffBtn: 'スタッフを追加',
++    defaultOffDays: '既定の休日',
++    close: '閉じる',
++    syncSuccess: '同期が完了しました！',
++    syncError: '同期中にエラーが発生しました。',
++    noTemplates: '保存されたテンプレートはありません。',
++    shiftsCount: '{count} シフト',
++    staffsCount: '{count} 名',
++    copySelectedWeek: '選択した週をコピー',
++    none: 'なし',
++    minutes: '分',
++    hour: '時間',
++    hours: '時間',
++    unitHrs: '時間',
++    staffOnlyPortal: 'スタッフ専用ポータル',
++    enterPasscode: 'パスコードを入力',
++    pressEnterToLogin: 'Enterキーでログイン',
++    offWatermark: '休日',
+   },
+ };
+ 

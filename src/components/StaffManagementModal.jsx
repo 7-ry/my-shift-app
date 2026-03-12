@@ -31,6 +31,7 @@ const StaffManagementModal = ({
   });
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [staffEditData, setStaffEditData] = useState({});
+  const [showAddForm, setShowAddForm] = useState(false);
 
   if (!showStaffModal) return null;
 
@@ -333,57 +334,103 @@ const StaffManagementModal = ({
             </div>
           ))}
         </div>
-        <form
-          onSubmit={handleAddStaff}
-          className="p-8 border-t bg-slate-900 space-y-5"
-        >
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder={t.staffName}
-              className="px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm uppercase placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
-              value={newStaff.name}
-              onChange={(e) =>
-                setNewStaff({ ...newStaff, name: e.target.value.toUpperCase() })
-              }
-              required
-            />
-            <input
-              type="number"
-              placeholder={t.target}
-              className="px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
-              value={newStaff.target}
-              onChange={(e) =>
-                setNewStaff({ ...newStaff, target: Number(e.target.value) })
-              }
-              required
-            />
-          </div>
-          <div className="px-1">
-            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
-              Default Off Days
-            </label>
-            {renderDayToggles(newStaff.offDays, (next) =>
-              setNewStaff({ ...newStaff, offDays: next })
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            <input
-              type="color"
-              className="w-12 h-12 rounded-full cursor-pointer border-4 border-white/10 bg-transparent"
-              value={newStaff.color}
-              onChange={(e) =>
-                setNewStaff({ ...newStaff, color: e.target.value })
-              }
-            />
+        {/* 🌟 修正ポイント: showAddForm の状態によって表示を切り替え */}
+        {!showAddForm ? (
+          /* 1. 通常時：追加ボタンのみ表示 */
+          <div className="p-6 border-t bg-slate-50 flex justify-center">
             <button
-              type="submit"
-              className="flex-1 bg-white text-slate-900 rounded-2xl py-3 font-black uppercase text-sm hover:bg-blue-400 transition-all shadow-2xl active:scale-95 tracking-widest"
+              onClick={() => setShowAddForm(true)}
+              className="w-full max-w-xs bg-slate-900 text-white rounded-2xl py-4 font-black uppercase text-xs tracking-[0.2em] hover:bg-slate-800 transition-all shadow-lg active:scale-95"
             >
-              Add Staff
+              + {t.addStaffBtn}
             </button>
           </div>
-        </form>
+        ) : (
+          /* 2. クリック後：入力フォームを表示 */
+          <form
+            onSubmit={async (e) => {
+              await handleAddStaff(e);
+              setShowAddForm(false); // 追加完了後に閉じる
+            }}
+            className="p-8 border-t bg-slate-900 space-y-6 animate-in slide-in-from-bottom duration-300"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-white text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+                {t.newStaff}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="text-white/40 hover:text-white text-[10px] font-black uppercase tracking-widest transition-colors"
+              >
+                ✕ {t.cancel}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
+                  {t.staffName}
+                </label>
+                <input
+                  type="text"
+                  placeholder={t.staffName}
+                  className="w-full px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm uppercase placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newStaff.name}
+                  onChange={(e) =>
+                    setNewStaff({
+                      ...newStaff,
+                      name: e.target.value.toUpperCase(),
+                    })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
+                  {t.target}
+                </label>
+                <input
+                  type="number"
+                  placeholder={t.target}
+                  className="w-full px-5 py-3 rounded-2xl bg-white/10 border-none text-white font-black text-sm placeholder:text-white/20 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newStaff.target}
+                  onChange={(e) =>
+                    setNewStaff({ ...newStaff, target: Number(e.target.value) })
+                  }
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="px-1">
+              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
+                {t.defaultOffDays}
+              </label>
+              {renderDayToggles(newStaff.offDays, (next) =>
+                setNewStaff({ ...newStaff, offDays: next })
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 pt-2">
+              <input
+                type="color"
+                className="w-12 h-12 rounded-full cursor-pointer border-4 border-white/10 bg-transparent flex-shrink-0"
+                value={newStaff.color}
+                onChange={(e) =>
+                  setNewStaff({ ...newStaff, color: e.target.value })
+                }
+              />
+              <button
+                type="submit"
+                className="flex-1 bg-white text-slate-900 rounded-2xl py-3.5 font-black uppercase text-xs hover:bg-blue-400 transition-all shadow-2xl active:scale-95 tracking-widest"
+              >
+                {t.addStaffBtn}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

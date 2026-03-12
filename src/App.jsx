@@ -85,7 +85,7 @@ function App() {
   }, []);
 
   const handleLogout = async () => {
-    if (window.confirm('ログアウトしますか？')) {
+    if (window.confirm(t.logoutConfirm)) {
       try {
         await signOut(auth);
         // signOut が成功すると onAuthStateChanged が検知して
@@ -205,10 +205,10 @@ function App() {
             getSheetCellByRow(day, row, lane, DAYS), // ★ DAYSを追加
         },
       });
-      alert('Success!');
+      alert(t.syncSuccess);
     } catch (error) {
       console.error(error);
-      alert('Error during sync');
+      alert(t.syncError);
     } finally {
       setIsProcessing(false);
     }
@@ -220,11 +220,10 @@ function App() {
     const staffInfo = staffs.find((s) => s.name === selectedStaff);
     const dayIndex = DAYS.indexOf(day); // 例: 'MON' -> 1
     if (staffInfo?.offDays?.includes(dayIndex)) {
-      if (
-        !window.confirm(
-          `${selectedStaff} は ${day} が休み設定です。追加しますか？`
-        )
-      ) {
+      const msg = t.offDayWarning
+        .replace('{name}', selectedStaff)
+        .replace('{day}', day);
+      if (!window.confirm(msg)) {
         return;
       }
     }
@@ -250,6 +249,31 @@ function App() {
     setIsProcessing(false);
   };
 
+  const handleSaveAsTemplate = async (templateName) => {
+    if (isProcessing || isReadOnly || !templateName || shifts.length === 0)
+      return;
+    setIsProcessing(true);
+    try {
+      // 🌟 保存用にデータをクリーンアップ（個別のIDやweekIdを除去）
+      const templateShifts = shifts.map(({ id, weekId, ...rest }) => rest);
+
+      await addDoc(collection(db, 'shiftTemplates'), {
+        name: templateName,
+        shifts: templateShifts,
+        createdAt: new Date(),
+        createdBy: user.email,
+        staffCount: [...new Set(shifts.map((s) => s.staffName))].length,
+      });
+
+      alert(t.templateSaveSuccess.replace('{name}', templateName));
+    } catch (e) {
+      console.error(e);
+      alert(t.templateSaveError);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const dashboardData = staffs.map((staff) => {
     const total = shifts
       .filter((s) => s.staffName === staff.name)
@@ -270,7 +294,7 @@ function App() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="font-black text-slate-400 text-xs tracking-widest uppercase">
-            Checking Access...
+            {t.checkingAccess}
           </p>
         </div>
       </div>
@@ -384,6 +408,8 @@ function App() {
         setIsProcessing={setIsProcessing}
         t={t}
         lang={lang}
+        handleSaveAsTemplate={handleSaveAsTemplate} // 🌟 追加
+        shifts={shifts} // 🌟 現在のシフト数などを表示するために追加
       />
       {isProcessing && (
         <div className="fixed inset-0 bg-white/40 backdrop-blur-[4px] z-[100] flex items-center justify-center transition-all duration-500">
