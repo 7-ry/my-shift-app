@@ -1,0 +1,19 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+	precomposeunicode = true
+[remote "origin"]
+	url = https://github.com/7-ry/my-shift-app.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+[branch "refactor-gas-logic"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/refactor-gas-logic
+[branch "feat/ui-refinement-and-lock"]
+	vscode-merge-base = origin/main

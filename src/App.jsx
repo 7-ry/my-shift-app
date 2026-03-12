@@ -65,8 +65,9 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [loginPw, setLoginPw] = useState('');
-  const [selectedShiftId, setSelectedShiftId] = useState(null); // 追加
+  const [selectedShiftId, setSelectedShiftId] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isEditLocked, setIsEditLocked] = useState(true);
 
   // 認証状態の監視（ブラウザを閉じてもログインを維持するための処理）
   useEffect(() => {
@@ -158,7 +159,7 @@ function App() {
     calcTotalHours,
     ROW_HEIGHT,
     DRAG_THRESHOLD,
-    isReadOnly,
+    isReadOnly: isReadOnly || isEditLocked,
   });
 
   const changeWeek = (offset) => {
@@ -214,7 +215,7 @@ function App() {
   };
 
   const handleAddShift = async (day, time, lane) => {
-    if (isProcessing || !selectedStaff || isReadOnly) return; // 🌟 isReadOnly を追加
+    if (isProcessing || !selectedStaff || isReadOnly || isEditLocked) return; // 🌟 isReadOnly を追加
     setIsProcessing(true);
     const staffInfo = staffs.find((s) => s.name === selectedStaff);
     const startMins = timeToMins(time);
@@ -298,6 +299,8 @@ function App() {
         shifts={shifts}
         setShifts={setShifts}
         isReadOnly={isReadOnly}
+        isEditLocked={isEditLocked}
+        setIsEditLocked={setIsEditLocked}
       />
       {/* DASHBOARD */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
@@ -319,13 +322,15 @@ function App() {
           t={t}
           formatTime12={formatTime12}
           timeToMins={timeToMins}
+          isEditLocked={isEditLocked}
+          isReadOnly={isReadOnly}
           handleAddShift={handleAddShift}
           setEditingShift={setEditingShift}
           handlePointerDownShift={handlePointerDownShift}
           handlePointerMove={handlePointerMove}
           handlePointerUp={handlePointerUp}
-          selectedShiftId={selectedShiftId} // 追加
-          setSelectedShiftId={setSelectedShiftId} // 追加
+          selectedShiftId={selectedShiftId}
+          setSelectedShiftId={setSelectedShiftId}
         />
       </div>
       <StaffDetailModal

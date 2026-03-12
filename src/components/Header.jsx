@@ -21,6 +21,8 @@ const Header = ({
   shifts,
   setShifts,
   isReadOnly,
+  isEditLocked,
+  setIsEditLocked,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
@@ -41,7 +43,7 @@ const Header = ({
       <div className="flex items-center gap-3 md:gap-5 min-w-fit">
         <div className="flex flex-col">
           <h1 className="text-lg md:text-xl font-black tracking-tight text-white leading-none">
-            SAKU{' '}
+            SAKU
             <span className="text-yellow-500 font-bold not-italic ml-1">
               Burquitlam
             </span>{' '}
@@ -88,6 +90,20 @@ const Header = ({
         </div>
       </div>
       <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+        {!isReadOnly && (
+          <button
+            onClick={() => setIsEditLocked(!isEditLocked)}
+            title={isEditLocked ? t.unlockTitle : t.lockTitle}
+            className={`w-10 h-10 border-2 flex items-center justify-center rounded-full transition-all active:scale-90 ${
+              isEditLocked
+                ? 'bg-yellow-400 border-slate-300 text-slate-400'
+                : 'bg-slate-100 border-yellow-500 text-slate-900 shadow-[0_0_15px_rgba(250,204,21,0.4)]'
+            }`}
+          >
+            {isEditLocked ? '🔒' : '🔓'}
+          </button>
+        )}
+
         <button
           onClick={() => setLang(lang === 'en' ? 'ja' : 'en')}
           className="w-10 h-10 border-2 border-slate-950 md:border-white/70 text-slate-950 md:text-white bg-white md:bg-transparent rounded-full font-black text-xs hover:bg-white/10 transition-all uppercase"

@@ -33,6 +33,8 @@ export const translations = {
     logout: 'Logout',
     start: 'START',
     end: 'END',
+    lockTitle: 'Enable Editing',
+    unlockTitle: 'Disable Editing',
   },
   ja: {
     week: '週',
@@ -66,6 +68,8 @@ export const translations = {
     logout: 'ログアウト',
     start: '開始時刻',
     end: '終了時刻',
+    lockTitle: '編集を有効にする',
+    unlockTitle: '編集を無効にする',
   },
 };
 

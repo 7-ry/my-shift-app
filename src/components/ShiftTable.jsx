@@ -87,6 +87,10 @@ const ShiftTable = ({
                         {cellShifts.map((shift) => {
                           // 🌟 ここで変数を定義（ReferenceErrorを解消）
                           const isSelected = selectedShiftId === shift.id;
+                          const durationMins =
+                            timeToMins(shift.endTime) -
+                            timeToMins(shift.startTime);
+                          const isShortCard = durationMins <= 60; // 1時間以下の短いシフトか判定
 
                           return (
                             <div
@@ -99,10 +103,10 @@ const ShiftTable = ({
                               onPointerDown={(e) =>
                                 handlePointerDownShift(e, shift, 'move')
                               }
-                              className={`absolute inset-x-1 rounded-lg p-2 flex flex-col items-start overflow-hidden shadow-sm ring-1 ring-black/10 z-10 cursor-grab active:cursor-grabbing transition-all ${
+                              className={`absolute inset-x-[3px] rounded-lg flex flex-col items-center justify-center overflow-hidden shadow-sm ring-1 ring-black/10 z-10 cursor-grab active:cursor-grabbing transition-all ${
                                 isSelected
-                                  ? 'ring-4 ring-blue-500 z-50 shadow-2xl scale-[1.02]'
-                                  : ''
+                                  ? 'ring-2 ring-blue-500 z-50 shadow-lg scale-[1.02] border-l-blue-600'
+                                  : 'border-l-black/20'
                               } ${
                                 dragInfo?.id === shift.id && isActuallyDragging
                                   ? 'opacity-90'
@@ -140,8 +144,38 @@ const ShiftTable = ({
                                   }
                                 />
                               )}
+                              <div className="flex flex-col items-center justify-center w-full px-0.5 text-center pointer-events-none leading-none">
+                                {/* 🌟 名前：4文字切り出し、サイズ最大化、完璧な中央配置 */}
+                                <span className="font-black text-slate-900 uppercase tracking-tighter w-full block text-[10px]">
+                                  {shift.staffName.substring(0, 4)}
+                                </span>
 
-                              <div className="flex justify-between items-start w-full pointer-events-none">
+                                {/* 🌟 時間：名前の直下に小さく配置 */}
+                                {durationMins >= 45 && (
+                                  <span
+                                    className={`font-bold text-slate-900/60 tracking-tighter block ${
+                                      isShortCard ? 'text-[8px]' : 'text-[9px]'
+                                    }`}
+                                    style={{ lineHeight: '1' }}
+                                  >
+                                    {(() => {
+                                      // 時刻フォーマットのヘルパー
+                                      const format = (t) => {
+                                        const f = formatTime12(t).replace(
+                                          ' ',
+                                          ''
+                                        );
+                                        return f.includes(':') ? f : `${f}:00`; // ":" がなければ ":00" を足す
+                                      };
+                                      return `${format(
+                                        shift.startTime
+                                      )} - ${format(shift.endTime)}`;
+                                    })()}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* <div className="flex justify-between items-start w-full pointer-events-none">
                                 <span className="font-black text-[10px] text-slate-900 truncate uppercase tracking-tighter">
                                   {shift.staffName}
                                 </span>
@@ -150,7 +184,7 @@ const ShiftTable = ({
                               <span className="hidden md:block text-[9px] text-slate-800/60 pointer-events-none mt-1 font-black tracking-tighter">
                                 {formatTime12(shift.startTime)}-
                                 {formatTime12(shift.endTime)}
-                              </span>
+                              </span> */}
 
                               {/* 選択中のみ下ハンドル表示 */}
                               {isSelected && (
