@@ -218,6 +218,16 @@ function App() {
     if (isProcessing || !selectedStaff || isReadOnly || isEditLocked) return; // 🌟 isReadOnly を追加
     setIsProcessing(true);
     const staffInfo = staffs.find((s) => s.name === selectedStaff);
+    const dayIndex = DAYS.indexOf(day); // 例: 'MON' -> 1
+    if (staffInfo?.offDays?.includes(dayIndex)) {
+      if (
+        !window.confirm(
+          `${selectedStaff} は ${day} が休み設定です。追加しますか？`
+        )
+      ) {
+        return;
+      }
+    }
     const startMins = timeToMins(time);
     const endStr = minsToTime(Math.min(startMins + 120, timeToMins('23:30')));
     const newShift = {
@@ -331,6 +341,8 @@ function App() {
           handlePointerUp={handlePointerUp}
           selectedShiftId={selectedShiftId}
           setSelectedShiftId={setSelectedShiftId}
+          staffs={staffs} // 🌟 追加
+          selectedStaff={selectedStaff} // 🌟 追加
         />
       </div>
       <StaffDetailModal

@@ -27,6 +27,7 @@ const StaffManagementModal = ({
     name: '',
     color: '#cbd5e1',
     target: 24,
+    offDays: [], // 🌟 追加
   });
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [staffEditData, setStaffEditData] = useState({});
@@ -71,6 +72,7 @@ const StaffManagementModal = ({
       name: staff.name,
       color: staff.color,
       target: staff.target,
+      offDays: staff.offDays || [], // 🌟 追加（既存データがない場合は空配列）
     });
   };
 
@@ -142,6 +144,37 @@ const StaffManagementModal = ({
     setIsProcessing(false);
   };
 
+  // 🌟 共通の曜日選択ボタン用ロジック（コンポーネント内の return 前に置くと便利）
+  const renderDayToggles = (currentOffDays, onChange) => {
+    const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // 日〜土
+    return (
+      <div className="flex gap-1.5 mt-2">
+        {dayLabels.map((label, idx) => {
+          const isOff = currentOffDays.includes(idx);
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                const next = isOff
+                  ? currentOffDays.filter((d) => d !== idx)
+                  : [...currentOffDays, idx];
+                onChange(next);
+              }}
+              className={`w-7 h-7 rounded-full text-[10px] font-black transition-all border-2 ${
+                isOff
+                  ? 'bg-rose-500 border-rose-600 text-white shadow-md'
+                  : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div
       className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
@@ -206,6 +239,14 @@ const StaffManagementModal = ({
                           })
                         }
                       />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black text-slate-400 ml-1 uppercase tracking-widest">
+                        {t.offDays || 'Weekly Off Days'}
+                      </label>
+                      {renderDayToggles(staffEditData.offDays, (next) =>
+                        setStaffEditData({ ...staffEditData, offDays: next })
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-6 pt-2">
@@ -317,6 +358,14 @@ const StaffManagementModal = ({
               }
               required
             />
+          </div>
+          <div className="px-1">
+            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">
+              Default Off Days
+            </label>
+            {renderDayToggles(newStaff.offDays, (next) =>
+              setNewStaff({ ...newStaff, offDays: next })
+            )}
           </div>
           <div className="flex items-center gap-4">
             <input

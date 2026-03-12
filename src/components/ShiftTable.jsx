@@ -18,6 +18,8 @@ const ShiftTable = ({
   handlePointerUp,
   selectedShiftId,
   setSelectedShiftId,
+  staffs,
+  selectedStaff,
 }) => {
   return (
     <div className="sticky top-16 md:top-[72px] z-30 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900 transition-all duration-300">
@@ -58,8 +60,24 @@ const ShiftTable = ({
                     {formatTime12(time)}
                   </span>
                 </td>
-                {DAYS.map((day) =>
-                  LANES.map((lane) => {
+                {DAYS.map((day) => {
+                  const dayIndexMap = {
+                    SUN: 0,
+                    MON: 1,
+                    TUE: 2,
+                    WED: 3,
+                    THU: 4,
+                    FRI: 5,
+                    SAT: 6,
+                  };
+                  const currentDayIdx = dayIndexMap[day];
+
+                  // 🌟 追加: スタッフ情報を LANES ループの外で取得（パフォーマンス向上）
+                  const staffInfo = staffs.find(
+                    (s) => s.name === selectedStaff
+                  );
+                  const isOffDay = staffInfo?.offDays?.includes(currentDayIdx);
+                  return LANES.map((lane) => {
                     const cellShifts = shifts.filter(
                       (s) =>
                         s.day === day &&
@@ -67,6 +85,7 @@ const ShiftTable = ({
                         timeToMins(s.startTime) >= timeToMins(time) &&
                         timeToMins(s.startTime) < timeToMins(time) + 30
                     );
+
                     return (
                       <td
                         key={`${day}-${time}-${lane}`}
@@ -81,9 +100,25 @@ const ShiftTable = ({
                           lane === 4
                             ? 'border-r-2 border-r-slate-200'
                             : 'border-r border-slate-50'
-                        } p-0 hover:bg-blue-50/50 cursor-crosshair relative transition-colors`}
+                        } p-0 relative transition-colors ${
+                          /* 🌟 修正: 背景色を bg-rose-100/40 に変更して視認性をアップ */
+                          isOffDay
+                            ? 'bg-rose-100/60'
+                            : 'hover:bg-blue-50/50 cursor-crosshair'
+                        }`}
                         title={t.doubleClickHint}
                       >
+                        {isOffDay && time === '13:00' && lane === 1 && (
+                          <div
+                            className="absolute top-0 left-0 w-[400%] h-full flex items-center justify-center pointer-events-none select-none z-[30] opacity-30"
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            <span className="text-rose-600 font-black text-7xl rotate-12 whitespace-nowrap tracking-tighter drop-shadow-sm">
+                              OFF
+                            </span>
+                          </div>
+                        )}
+
                         {cellShifts.map((shift) => {
                           // 🌟 ここで変数を定義（ReferenceErrorを解消）
                           const isSelected = selectedShiftId === shift.id;
@@ -204,8 +239,8 @@ const ShiftTable = ({
                         })}
                       </td>
                     );
-                  })
-                )}
+                  });
+                })}
               </tr>
             ))}
           </tbody>
