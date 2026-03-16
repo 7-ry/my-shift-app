@@ -98,8 +98,7 @@ const EditShiftModal = ({
           </div>
 
           <form onSubmit={onSave} className="space-y-6">
-            {/* 🌟 修正ポイント: スマホでは 1列(grid-cols-1)、PCでは 2列(md:grid-cols-2) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">
                   {t.start}
@@ -137,6 +136,41 @@ const EditShiftModal = ({
                     })
                   }
                 />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-blue-500 ml-1 uppercase tracking-[0.2em]">
+                  {t.extendedEndShort}
+                </label>
+                <div className="relative group">
+                  <input
+                    type="time"
+                    readOnly={isReadOnly}
+                    className={`w-full bg-blue-50 border-2 border-blue-100 rounded-2xl py-4 font-black text-base focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner text-center ${
+                      isReadOnly ? 'opacity-70 cursor-not-allowed' : ''
+                    }`}
+                    value={editingShift.extendedEndTime || ''}
+                    onChange={(e) =>
+                      setEditingShift({
+                        ...editingShift,
+                        extendedEndTime: e.target.value,
+                      })
+                    }
+                  />
+                  {editingShift.extendedEndTime && !isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingShift({
+                          ...editingShift,
+                          extendedEndTime: '',
+                        })
+                      }
+                      className="absolute -top-1 -right-1 bg-slate-400 text-white w-5 h-5 rounded-full text-[10px]"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

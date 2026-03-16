@@ -234,6 +234,7 @@ function App() {
       day,
       startTime: time,
       endTime: endStr,
+      extendedEndTime: '',
       lane,
       breakHours: 0,
       totalHours: calcTotalHours(time, endStr, 0),

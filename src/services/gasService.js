@@ -66,10 +66,20 @@ export const syncToGAS = async ({
       }
       if (sR > 40 || sR < 5 || eR < sR) return;
 
-      const startStr = formatTime12(s.startTime),
-        endStr = formatTime12(s.endTime);
+      const startStr = formatTime12(s.startTime);
+      let endStr = formatTime12(s.endTime);
+
+      if (s.extendedEndTime) {
+        const extStr = formatTime12(s.extendedEndTime);
+        endStr = `${endStr}(${extStr})`;
+      }
+
+      const fullTimeStr = `${startStr}-${endStr}`;
+
+      const wrapThreshold = fullTimeStr.includes('(') ? 10 : 9;
+
       const timeLabel =
-        (startStr + '-' + endStr).length >= 9
+        fullTimeStr.length >= wrapThreshold
           ? `${startStr}-\n${endStr}`
           : `${startStr}-${endStr}`;
 

@@ -101,7 +101,6 @@ const ShiftTable = ({
                             ? 'border-r-2 border-r-slate-200'
                             : 'border-r border-slate-50'
                         } p-0 relative transition-colors ${
-                          /* 🌟 修正: 背景色を bg-rose-100/40 に変更して視認性をアップ */
                           isOffDay
                             ? 'bg-rose-100/60'
                             : 'hover:bg-blue-50/50 cursor-crosshair'
@@ -120,12 +119,11 @@ const ShiftTable = ({
                         )}
 
                         {cellShifts.map((shift) => {
-                          // 🌟 ここで変数を定義（ReferenceErrorを解消）
                           const isSelected = selectedShiftId === shift.id;
                           const durationMins =
                             timeToMins(shift.endTime) -
                             timeToMins(shift.startTime);
-                          const isShortCard = durationMins <= 60; // 1時間以下の短いシフトか判定
+                          const isShortCard = durationMins <= 60;
 
                           return (
                             <div
@@ -194,32 +192,28 @@ const ShiftTable = ({
                                     style={{ lineHeight: '1' }}
                                   >
                                     {(() => {
-                                      // 時刻フォーマットのヘルパー
-                                      const format = (t) => {
-                                        const f = formatTime12(t).replace(
-                                          ' ',
-                                          ''
-                                        );
-                                        return f.includes(':') ? f : `${f}:00`; // ":" がなければ ":00" を足す
-                                      };
-                                      return `${format(
+                                      const start = formatTime12(
                                         shift.startTime
-                                      )} - ${format(shift.endTime)}`;
+                                      );
+                                      const end = formatTime12(shift.endTime);
+                                      const ext = shift.extendedEndTime
+                                        ? `(${formatTime12(
+                                            shift.extendedEndTime
+                                          )})`
+                                        : '';
+                                      return `${start}-${end}${ext}`; // 例: 9:30-2(3)
                                     })()}
                                   </span>
                                 )}
-                              </div>
 
-                              {/* <div className="flex justify-between items-start w-full pointer-events-none">
-                                <span className="font-black text-[10px] text-slate-900 truncate uppercase tracking-tighter">
-                                  {shift.staffName}
-                                </span>
+                                {!isShortCard && shift.breakHours > 0 && (
+                                  <span className="text-[8px] font-black text-slate-900/40 mt-0.5 uppercase">
+                                    {shift.breakHours === 0.5
+                                      ? '30m'
+                                      : `${shift.breakHours}h`}
+                                  </span>
+                                )}
                               </div>
-
-                              <span className="hidden md:block text-[9px] text-slate-800/60 pointer-events-none mt-1 font-black tracking-tighter">
-                                {formatTime12(shift.startTime)}-
-                                {formatTime12(shift.endTime)}
-                              </span> */}
 
                               {/* 選択中のみ下ハンドル表示 */}
                               {isSelected && (

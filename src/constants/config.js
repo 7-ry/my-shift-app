@@ -68,6 +68,8 @@ export const translations = {
     enterPasscode: 'ENTER PASSCODE', // 追加
     pressEnterToLogin: 'Press Enter to Login', // 追加
     offWatermark: 'OFF', // 追加
+    extendedEnd: 'Extended End (Optional)',
+    extendedEndShort: 'Ext. End',
   },
   ja: {
     week: '週',
@@ -136,6 +138,8 @@ export const translations = {
     enterPasscode: 'パスコードを入力',
     pressEnterToLogin: 'Enterキーでログイン',
     offWatermark: '休日',
+    extendedEnd: '延長可能時間 (任意)',
+    extendedEndShort: '延長予定',
   },
 };
 
