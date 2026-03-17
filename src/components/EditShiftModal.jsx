@@ -23,7 +23,8 @@ const EditShiftModal = ({
       const total = calcTotalHours(
         editingShift.startTime,
         editingShift.endTime,
-        editingShift.breakHours
+        editingShift.breakHours,
+        15
       );
       await updateDoc(doc(db, 'shifts', editingShift.id), {
         ...editingShift,

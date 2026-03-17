@@ -42,11 +42,33 @@ export const minsToTime = (mins) => {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 };
 
-export const calcTotalHours = (start, end, breakHours) => {
-  const durationMins = timeToMins(end) - timeToMins(start);
-  let total = durationMins / 60 - (breakHours || 0);
-  if (total < 0) total = 0;
-  return Math.floor(total * 100) / 100;
+// src/utils/helpers.js (21行目付近)
+
+export const calcTotalHours = (start, end, breakHours = 0, roundStep = 15) => {
+  if (!start || !end) return 0;
+
+  const startMins = timeToMins(start);
+  const endMins = timeToMins(end);
+
+  // 深夜跨ぎ計算
+  let durationMins = endMins - startMins;
+  if (durationMins < 0) durationMins += 24 * 60;
+
+  // 1. まず休憩を引く
+  let workMins = durationMins - breakHours * 60;
+  if (workMins < 0) workMins = 0;
+
+  // 2. 🌟 CalculatorSoupロジック（7分ルール）
+  // Math.round(x / 15) * 15 により、7分以下は切り捨て、8分以上は切り上げとなります
+  if (roundStep > 0) {
+    workMins = Math.round(workMins / roundStep) * roundStep;
+  }
+
+  // 3. 10進法に変換 (例: 45分 -> 0.75)
+  const total = workMins / 60;
+
+  // 最後に小数点第2位で丸める
+  return Math.round(total * 100) / 100;
 };
 
 export const getWeekDisplayVerbose = (weekId, lang = 'en') => {
