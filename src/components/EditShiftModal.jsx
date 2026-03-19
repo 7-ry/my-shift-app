@@ -24,7 +24,7 @@ const EditShiftModal = ({
         editingShift.startTime,
         editingShift.endTime,
         editingShift.breakHours,
-        15
+        0
       );
       await updateDoc(doc(db, 'shifts', editingShift.id), {
         ...editingShift,

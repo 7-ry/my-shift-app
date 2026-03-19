@@ -102,8 +102,8 @@ export const syncToGAS = async ({
     const total = shifts
       .filter((s) => s.staffName === staff.name)
       .reduce((acc, s) => acc + s.totalHours, 0);
-    const current = Math.floor(total * 100) / 100,
-      rem = Math.floor((staff.target - current) * 100) / 100;
+    const current = Math.round(total * 100) / 100,
+      rem = Math.round((staff.target - current) * 100) / 100;
     let statusLabel = t.met;
     if (rem < 0) statusLabel = `⚠️ ${t.over}`;
     else if (rem > 0) statusLabel = t.room;

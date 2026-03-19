@@ -44,7 +44,7 @@ export const minsToTime = (mins) => {
 
 // src/utils/helpers.js (21行目付近)
 
-export const calcTotalHours = (start, end, breakHours = 0, roundStep = 15) => {
+export const calcTotalHours = (start, end, breakHours = 0, roundStep = 0) => {
   if (!start || !end) return 0;
 
   const startMins = timeToMins(start);

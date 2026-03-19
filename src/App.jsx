@@ -267,7 +267,19 @@ function App() {
     setIsProcessing(true);
     try {
       // 🌟 保存用にデータをクリーンアップ（個別のIDやweekIdを除去）
-      const templateShifts = shifts.map(({ id, weekId, ...rest }) => rest);
+      const templateShifts = shifts.map(
+        ({ id, weekId, totalHours, ...rest }) => {
+          return {
+            ...rest,
+            totalHours: calcTotalHours(
+              rest.startTime,
+              rest.endTime,
+              rest.breakHours,
+              0
+            ),
+          };
+        }
+      );
 
       await addDoc(collection(db, 'shiftTemplates'), {
         name: templateName,
@@ -290,7 +302,7 @@ function App() {
     const total = shifts
       .filter((s) => s.staffName === staff.name)
       .reduce((acc, s) => acc + s.totalHours, 0);
-    const totalFixed = Math.floor(total * 100) / 100;
+    const totalFixed = Math.round(total * 100) / 100;
     return {
       ...staff,
       currentHours: totalFixed,
