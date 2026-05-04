@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   doc,
-  deleteDoc,
   addDoc,
   collection,
   updateDoc,
@@ -20,7 +19,6 @@ const StaffManagementModal = ({
   setIsProcessing,
   isProcessing,
   t,
-  shifts,
   setShifts,
 }) => {
   const [newStaff, setNewStaff] = useState({

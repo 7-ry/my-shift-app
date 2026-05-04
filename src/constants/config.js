@@ -53,8 +53,6 @@ export const translations = {
     addStaffBtn: 'Add Staff',
     defaultOffDays: 'Default Off Days',
     close: 'Close',
-    syncSuccess: 'Sync completed successfully!', // 追加
-    syncError: 'Error occurred during sync.', // 追加
     noTemplates: 'No templates saved.', // 追加
     shiftsCount: '{count} Shifts', // 追加
     staffsCount: '{count} Staffs', // 追加
@@ -123,8 +121,6 @@ export const translations = {
     addStaffBtn: 'スタッフを追加',
     defaultOffDays: '既定の休日',
     close: '閉じる',
-    syncSuccess: '同期が完了しました！',
-    syncError: '同期中にエラーが発生しました。',
     noTemplates: '保存されたテンプレートはありません。',
     shiftsCount: '{count} シフト',
     staffsCount: '{count} 名',

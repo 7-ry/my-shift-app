@@ -5,8 +5,6 @@ import {
   addDoc,
   getDocs,
   doc,
-  deleteDoc,
-  updateDoc,
   query,
   where,
   writeBatch,
@@ -153,7 +151,6 @@ function App() {
     setShifts,
     selectedShiftId,
     setSelectedShiftId,
-    setSelectedStaff,
     timeToMins,
     minsToTime,
     calcTotalHours,
@@ -198,7 +195,6 @@ function App() {
         helpers: {
           timeToMins,
           getSheetRowNum,
-          getSheetCellByRow,
           formatTime12,
           getWeekDisplayVerbose,
           getSheetCellByRow: (day, row, lane) =>
@@ -267,19 +263,21 @@ function App() {
     setIsProcessing(true);
     try {
       // 🌟 保存用にデータをクリーンアップ（個別のIDやweekIdを除去）
-      const templateShifts = shifts.map(
-        ({ id, weekId, totalHours, ...rest }) => {
-          return {
-            ...rest,
-            totalHours: calcTotalHours(
-              rest.startTime,
-              rest.endTime,
-              rest.breakHours,
-              0
-            ),
-          };
-        }
-      );
+      const templateShifts = shifts.map((shift) => {
+        const rest = { ...shift };
+        delete rest.id;
+        delete rest.weekId;
+        delete rest.totalHours;
+        return {
+          ...rest,
+          totalHours: calcTotalHours(
+            rest.startTime,
+            rest.endTime,
+            rest.breakHours,
+            0
+          ),
+        };
+      });
 
       await addDoc(collection(db, 'shiftTemplates'), {
         name: templateName,
@@ -407,7 +405,6 @@ function App() {
         setShowStaffModal={setShowStaffModal}
         staffs={staffs}
         setStaffs={setStaffs}
-        shifts={shifts} // ★追加
         setShifts={setShifts} // ★追加
         setIsProcessing={setIsProcessing}
         isProcessing={isProcessing}
@@ -416,7 +413,6 @@ function App() {
       <EditShiftModal
         editingShift={editingShift}
         setEditingShift={setEditingShift}
-        shifts={shifts} // ★ 追加
         setShifts={setShifts} // ★ 追加
         calcTotalHours={calcTotalHours} // ★ 追加
         isProcessing={isProcessing}
