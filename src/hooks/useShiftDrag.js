@@ -99,7 +99,16 @@ export const useShiftDrag = ({
         })
       );
     },
-    [dragInfo, isActuallyDragging]
+    [
+      dragInfo,
+      isActuallyDragging,
+      DRAG_THRESHOLD,
+      ROW_HEIGHT,
+      timeToMins,
+      minsToTime,
+      calcTotalHours,
+      setShifts,
+    ]
   );
 
   // 3. ドラッグ終了：Firebaseへの保存 (★重要)
