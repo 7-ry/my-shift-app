@@ -263,19 +263,21 @@ function App() {
     setIsProcessing(true);
     try {
       // 🌟 保存用にデータをクリーンアップ（個別のIDやweekIdを除去）
-      const templateShifts = shifts.map(
-        ({ id, weekId, totalHours, ...rest }) => {
-          return {
-            ...rest,
-            totalHours: calcTotalHours(
-              rest.startTime,
-              rest.endTime,
-              rest.breakHours,
-              0
-            ),
-          };
-        }
-      );
+      const templateShifts = shifts.map((shift) => {
+        const rest = { ...shift };
+        delete rest.id;
+        delete rest.weekId;
+        delete rest.totalHours;
+        return {
+          ...rest,
+          totalHours: calcTotalHours(
+            rest.startTime,
+            rest.endTime,
+            rest.breakHours,
+            0
+          ),
+        };
+      });
 
       await addDoc(collection(db, 'shiftTemplates'), {
         name: templateName,
