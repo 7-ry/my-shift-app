@@ -195,7 +195,6 @@ function App() {
         helpers: {
           timeToMins,
           getSheetRowNum,
-          getSheetCellByRow,
           formatTime12,
           getWeekDisplayVerbose,
           getSheetCellByRow: (day, row, lane) =>
