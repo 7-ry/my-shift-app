@@ -5,7 +5,6 @@ import { db } from '../firebase';
 const EditShiftModal = ({
   editingShift,
   setEditingShift,
-  shifts,
   setShifts,
   calcTotalHours,
   isProcessing,

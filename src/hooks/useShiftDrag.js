@@ -7,7 +7,6 @@ export const useShiftDrag = ({
   setShifts,
   selectedShiftId,
   setSelectedShiftId,
-  setSelectedStaff,
   timeToMins,
   minsToTime,
   calcTotalHours,

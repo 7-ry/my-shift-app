@@ -5,8 +5,6 @@ import {
   addDoc,
   getDocs,
   doc,
-  deleteDoc,
-  updateDoc,
   query,
   where,
   writeBatch,
@@ -153,7 +151,6 @@ function App() {
     setShifts,
     selectedShiftId,
     setSelectedShiftId,
-    setSelectedStaff,
     timeToMins,
     minsToTime,
     calcTotalHours,
@@ -407,7 +404,6 @@ function App() {
         setShowStaffModal={setShowStaffModal}
         staffs={staffs}
         setStaffs={setStaffs}
-        shifts={shifts} // ★追加
         setShifts={setShifts} // ★追加
         setIsProcessing={setIsProcessing}
         isProcessing={isProcessing}
@@ -416,7 +412,6 @@ function App() {
       <EditShiftModal
         editingShift={editingShift}
         setEditingShift={setEditingShift}
-        shifts={shifts} // ★ 追加
         setShifts={setShifts} // ★ 追加
         calcTotalHours={calcTotalHours} // ★ 追加
         isProcessing={isProcessing}
