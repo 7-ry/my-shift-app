@@ -30,10 +30,10 @@ const staffs = [
   { name: 'RYUSHIN', target: 8 },
 ];
 
-const buildPayload = (shifts, translations = t) =>
+const buildPayload = (shifts, translations = t, staffRows = staffs) =>
   buildGASPayload({
     shifts,
-    staffs,
+    staffs: staffRows,
     weekId: '2026-W19',
     lang: 'en',
     t: translations,
@@ -267,6 +267,53 @@ describe('buildGASPayload', () => {
       '',
       -1,
       '⚠️ OVER',
+    ]);
+  });
+
+  it('sums multiple shifts for the same staff in dashboardRows', () => {
+    const payload = buildPayload([
+      {
+        day: 'MON',
+        staffName: 'KANA',
+        startTime: '09:00',
+        endTime: '11:00',
+        lane: 1,
+        breakHours: 0,
+        totalHours: 2.25,
+        color: '#bae6fd',
+      },
+      {
+        day: 'TUE',
+        staffName: 'KANA',
+        startTime: '12:00',
+        endTime: '15:00',
+        lane: 1,
+        breakHours: 0,
+        totalHours: 3.5,
+        color: '#bae6fd',
+      },
+    ]);
+
+    expect(payload.dashboardRows[0]).toEqual([
+      'KANA',
+      5.75,
+      8,
+      '',
+      2.25,
+      'AVAIL',
+    ]);
+  });
+
+  it('uses zero current hours for staff with no shifts', () => {
+    const payload = buildPayload([], t, [{ name: 'NO_SHIFT', target: 6 }]);
+
+    expect(payload.dashboardRows[0]).toEqual([
+      'NO_SHIFT',
+      0,
+      6,
+      '',
+      6,
+      'AVAIL',
     ]);
   });
 });

@@ -11,11 +11,17 @@ const buildShiftDataRows = (shifts) =>
     s.totalHours,
   ]);
 
-const buildDashboardRows = (staffs, shifts, t) =>
-  staffs.map((staff) => {
-    const total = shifts
-      .filter((s) => s.staffName === staff.name)
-      .reduce((acc, s) => acc + s.totalHours, 0);
+const buildDashboardRows = (staffs, shifts, t) => {
+  const totalsByStaff = new Map();
+  shifts.forEach((shift) => {
+    totalsByStaff.set(
+      shift.staffName,
+      (totalsByStaff.get(shift.staffName) || 0) + shift.totalHours
+    );
+  });
+
+  return staffs.map((staff) => {
+    const total = totalsByStaff.get(staff.name) || 0;
     const current = Math.round(total * 100) / 100,
       rem = Math.round((staff.target - current) * 100) / 100;
     let statusLabel = t.met;
@@ -23,6 +29,7 @@ const buildDashboardRows = (staffs, shifts, t) =>
     else if (rem > 0) statusLabel = t.room;
     return [staff.name, current, staff.target, '', rem, statusLabel];
   });
+};
 
 const buildScheduleCommands = (shifts, helpers) => {
   const { timeToMins, getSheetRowNum, getSheetCellByRow, formatTime12 } =
