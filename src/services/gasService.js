@@ -1,5 +1,16 @@
 // src/services/gasService.js
 
+/**
+ * Builds the frontend payload expected by the BOH schedule Google Apps Script.
+ * @param {Object} params
+ * @param {Array} params.shifts - Shift data for the selected week.
+ * @param {Array} params.staffs - Active staff data used for dashboard rows.
+ * @param {string} params.weekId - Selected week id, such as "2026-W19".
+ * @param {string} params.lang - Current UI language used for weekLabel.
+ * @param {Object} params.t - Current translation labels used for dashboard status.
+ * @param {Object} params.helpers - Time, week, and sheet cell helper functions.
+ * @returns {Object} GAS payload with weekId, weekLabel, scheduleCommands, dashboardRows, and shiftDataRows.
+ */
 export const buildGASPayload = ({
   shifts,
   staffs,
@@ -122,9 +133,10 @@ export const buildGASPayload = ({
  * @param {string} params.gasUrl - GASのウェブアプリURL
  * @param {Array} params.shifts - 同期するシフトデータ
  * @param {Array} params.staffs - スタッフデータ
- * @param {Date} params.currentWeekStart - 表示中の週の開始日
- * @param {Function} params.formatDate - 日付フォーマット関数
- * @param {Function} params.formatTime12 - 時間フォーマット関数
+ * @param {string} params.weekId - 同期する週ID
+ * @param {string} params.lang - 現在の表示言語
+ * @param {Object} params.t - 翻訳ラベル
+ * @param {Object} params.helpers - 時刻、週表示、シートセル変換のヘルパー関数
  */
 export const syncToGAS = async ({
   gasUrl,
