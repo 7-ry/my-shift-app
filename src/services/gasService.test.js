@@ -30,13 +30,13 @@ const staffs = [
   { name: 'RYUSHIN', target: 8 },
 ];
 
-const buildPayload = (shifts) =>
+const buildPayload = (shifts, translations = t) =>
   buildGASPayload({
     shifts,
     staffs,
     weekId: '2026-W19',
     lang: 'en',
-    t,
+    t: translations,
     helpers,
   });
 
@@ -236,6 +236,37 @@ describe('buildGASPayload', () => {
     expect(payload.shiftDataRows).toEqual([
       ['FRI', 'RYUSHIN', '13:00', '15:00', 3, 0, 2],
       ['MON', 'KANA', '09:00', '11:00', 1, 0, 2],
+    ]);
+  });
+
+  it('uses the GAS-compatible OVER status for Japanese over rows', () => {
+    const payload = buildPayload(
+      [
+        {
+          day: 'MON',
+          staffName: 'KANA',
+          startTime: '09:00',
+          endTime: '18:00',
+          lane: 1,
+          breakHours: 0,
+          totalHours: 9,
+          color: '#bae6fd',
+        },
+      ],
+      {
+        met: '達成',
+        over: '超過',
+        room: '追加可能',
+      }
+    );
+
+    expect(payload.dashboardRows[0]).toEqual([
+      'KANA',
+      9,
+      8,
+      '',
+      -1,
+      '⚠️ OVER',
     ]);
   });
 });

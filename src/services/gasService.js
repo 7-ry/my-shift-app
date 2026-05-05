@@ -19,7 +19,7 @@ const buildDashboardRows = (staffs, shifts, t) =>
     const current = Math.round(total * 100) / 100,
       rem = Math.round((staff.target - current) * 100) / 100;
     let statusLabel = t.met;
-    if (rem < 0) statusLabel = `⚠️ ${t.over}`;
+    if (rem < 0) statusLabel = '⚠️ OVER';
     else if (rem > 0) statusLabel = t.room;
     return [staff.name, current, staff.target, '', rem, statusLabel];
   });
