@@ -1,6 +1,6 @@
 // src/services/gasService.js
 
-const buildGASPayload = ({
+export const buildGASPayload = ({
   shifts,
   staffs,
   weekId,
