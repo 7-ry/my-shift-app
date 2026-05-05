@@ -4,7 +4,10 @@ import { db } from '../firebase';
 
 export const useWeekShifts = ({ user, weekId, setShifts }) => {
   useEffect(() => {
-    if (!user) return; // 🌟 ログイン前は実行しない
+    if (!user) {
+      setShifts([]);
+      return; // 🌟 ログイン前は実行しない
+    }
 
     let isActive = true;
 
