@@ -1,31 +1,32 @@
 // src/services/gasService.js
 
-/**
- * Builds the frontend payload expected by the BOH schedule Google Apps Script.
- * @param {Object} params
- * @param {Array} params.shifts - Shift data for the selected week.
- * @param {Array} params.staffs - Active staff data used for dashboard rows.
- * @param {string} params.weekId - Selected week id, such as "2026-W19".
- * @param {string} params.lang - Current UI language used for weekLabel.
- * @param {Object} params.t - Current translation labels used for dashboard status.
- * @param {Object} params.helpers - Time, week, and sheet cell helper functions.
- * @returns {Object} GAS payload with weekId, weekLabel, scheduleCommands, dashboardRows, and shiftDataRows.
- */
-export const buildGASPayload = ({
-  shifts,
-  staffs,
-  weekId,
-  lang,
-  t,
-  helpers, // timeToMins, getSheetRowNum などの関数をAppから受け取る
-}) => {
-  const {
-    timeToMins,
-    getSheetRowNum,
-    getSheetCellByRow,
-    formatTime12,
-    getWeekDisplayVerbose,
-  } = helpers;
+const buildShiftDataRows = (shifts) =>
+  shifts.map((s) => [
+    s.day,
+    s.staffName,
+    s.startTime,
+    s.endTime,
+    s.lane,
+    s.breakHours,
+    s.totalHours,
+  ]);
+
+const buildDashboardRows = (staffs, shifts, t) =>
+  staffs.map((staff) => {
+    const total = shifts
+      .filter((s) => s.staffName === staff.name)
+      .reduce((acc, s) => acc + s.totalHours, 0);
+    const current = Math.round(total * 100) / 100,
+      rem = Math.round((staff.target - current) * 100) / 100;
+    let statusLabel = t.met;
+    if (rem < 0) statusLabel = `⚠️ ${t.over}`;
+    else if (rem > 0) statusLabel = t.room;
+    return [staff.name, current, staff.target, '', rem, statusLabel];
+  });
+
+const buildScheduleCommands = (shifts, helpers) => {
+  const { timeToMins, getSheetRowNum, getSheetCellByRow, formatTime12 } =
+    helpers;
 
   let processedShifts = [...shifts].sort(
     (a, b) => timeToMins(a.startTime) - timeToMins(b.startTime)
@@ -98,32 +99,36 @@ export const buildGASPayload = ({
       });
     });
 
-  const dashboardRows = staffs.map((staff) => {
-    const total = shifts
-      .filter((s) => s.staffName === staff.name)
-      .reduce((acc, s) => acc + s.totalHours, 0);
-    const current = Math.round(total * 100) / 100,
-      rem = Math.round((staff.target - current) * 100) / 100;
-    let statusLabel = t.met;
-    if (rem < 0) statusLabel = `⚠️ ${t.over}`;
-    else if (rem > 0) statusLabel = t.room;
-    return [staff.name, current, staff.target, '', rem, statusLabel];
-  });
+  return scheduleCommands;
+};
+
+/**
+ * Builds the frontend payload expected by the BOH schedule Google Apps Script.
+ * @param {Object} params
+ * @param {Array} params.shifts - Shift data for the selected week.
+ * @param {Array} params.staffs - Active staff data used for dashboard rows.
+ * @param {string} params.weekId - Selected week id, such as "2026-W19".
+ * @param {string} params.lang - Current UI language used for weekLabel.
+ * @param {Object} params.t - Current translation labels used for dashboard status.
+ * @param {Object} params.helpers - Time, week, and sheet cell helper functions.
+ * @returns {Object} GAS payload with weekId, weekLabel, scheduleCommands, dashboardRows, and shiftDataRows.
+ */
+export const buildGASPayload = ({
+  shifts,
+  staffs,
+  weekId,
+  lang,
+  t,
+  helpers, // timeToMins, getSheetRowNum などの関数をAppから受け取る
+}) => {
+  const { getWeekDisplayVerbose } = helpers;
 
   return {
     weekId,
     weekLabel: getWeekDisplayVerbose(weekId, lang),
-    scheduleCommands,
-    dashboardRows,
-    shiftDataRows: shifts.map((s) => [
-      s.day,
-      s.staffName,
-      s.startTime,
-      s.endTime,
-      s.lane,
-      s.breakHours,
-      s.totalHours,
-    ]),
+    scheduleCommands: buildScheduleCommands(shifts, helpers),
+    dashboardRows: buildDashboardRows(staffs, shifts, t),
+    shiftDataRows: buildShiftDataRows(shifts),
   };
 };
 
