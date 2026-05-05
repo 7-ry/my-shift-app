@@ -11,6 +11,19 @@ const buildShiftDataRows = (shifts) =>
     s.totalHours,
   ]);
 
+const buildDashboardRows = (staffs, shifts, t) =>
+  staffs.map((staff) => {
+    const total = shifts
+      .filter((s) => s.staffName === staff.name)
+      .reduce((acc, s) => acc + s.totalHours, 0);
+    const current = Math.round(total * 100) / 100,
+      rem = Math.round((staff.target - current) * 100) / 100;
+    let statusLabel = t.met;
+    if (rem < 0) statusLabel = `⚠️ ${t.over}`;
+    else if (rem > 0) statusLabel = t.room;
+    return [staff.name, current, staff.target, '', rem, statusLabel];
+  });
+
 /**
  * Builds the frontend payload expected by the BOH schedule Google Apps Script.
  * @param {Object} params
@@ -109,23 +122,11 @@ export const buildGASPayload = ({
       });
     });
 
-  const dashboardRows = staffs.map((staff) => {
-    const total = shifts
-      .filter((s) => s.staffName === staff.name)
-      .reduce((acc, s) => acc + s.totalHours, 0);
-    const current = Math.round(total * 100) / 100,
-      rem = Math.round((staff.target - current) * 100) / 100;
-    let statusLabel = t.met;
-    if (rem < 0) statusLabel = `⚠️ ${t.over}`;
-    else if (rem > 0) statusLabel = t.room;
-    return [staff.name, current, staff.target, '', rem, statusLabel];
-  });
-
   return {
     weekId,
     weekLabel: getWeekDisplayVerbose(weekId, lang),
     scheduleCommands,
-    dashboardRows,
+    dashboardRows: buildDashboardRows(staffs, shifts, t),
     shiftDataRows: buildShiftDataRows(shifts),
   };
 };
