@@ -1,5 +1,7 @@
 // src/services/gasService.js
 
+const GAS_STATUS_OVER = '⚠️ OVER';
+
 const buildShiftDataRows = (shifts) =>
   shifts.map((s) => [
     s.day,
@@ -25,7 +27,7 @@ const buildDashboardRows = (staffs, shifts, t) => {
     const current = Math.round(total * 100) / 100,
       rem = Math.round((staff.target - current) * 100) / 100;
     let statusLabel = t.met;
-    if (rem < 0) statusLabel = '⚠️ OVER';
+    if (rem < 0) statusLabel = GAS_STATUS_OVER;
     else if (rem > 0) statusLabel = t.room;
     return [staff.name, current, staff.target, '', rem, statusLabel];
   });
@@ -35,7 +37,7 @@ const buildScheduleCommands = (shifts, helpers) => {
   const { timeToMins, getSheetRowNum, getSheetCellByRow, formatTime12 } =
     helpers;
 
-  let processedShifts = [...shifts].sort(
+  const processedShifts = [...shifts].sort(
     (a, b) => timeToMins(a.startTime) - timeToMins(b.startTime)
   );
 
@@ -116,7 +118,7 @@ const buildScheduleCommands = (shifts, helpers) => {
  * @param {Array} params.staffs - Active staff data used for dashboard rows.
  * @param {string} params.weekId - Selected week id, such as "2026-W19".
  * @param {string} params.lang - Current UI language used for weekLabel.
- * @param {Object} params.t - Current translation labels used for dashboard status.
+ * @param {Object} params.t - Translation labels; t.met and t.room are used for dashboard status labels, while over status uses GAS_STATUS_OVER.
  * @param {Object} params.helpers - Time, week, and sheet cell helper functions.
  * @returns {Object} GAS payload with weekId, weekLabel, scheduleCommands, dashboardRows, and shiftDataRows.
  */
