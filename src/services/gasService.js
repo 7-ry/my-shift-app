@@ -24,32 +24,9 @@ const buildDashboardRows = (staffs, shifts, t) =>
     return [staff.name, current, staff.target, '', rem, statusLabel];
   });
 
-/**
- * Builds the frontend payload expected by the BOH schedule Google Apps Script.
- * @param {Object} params
- * @param {Array} params.shifts - Shift data for the selected week.
- * @param {Array} params.staffs - Active staff data used for dashboard rows.
- * @param {string} params.weekId - Selected week id, such as "2026-W19".
- * @param {string} params.lang - Current UI language used for weekLabel.
- * @param {Object} params.t - Current translation labels used for dashboard status.
- * @param {Object} params.helpers - Time, week, and sheet cell helper functions.
- * @returns {Object} GAS payload with weekId, weekLabel, scheduleCommands, dashboardRows, and shiftDataRows.
- */
-export const buildGASPayload = ({
-  shifts,
-  staffs,
-  weekId,
-  lang,
-  t,
-  helpers, // timeToMins, getSheetRowNum などの関数をAppから受け取る
-}) => {
-  const {
-    timeToMins,
-    getSheetRowNum,
-    getSheetCellByRow,
-    formatTime12,
-    getWeekDisplayVerbose,
-  } = helpers;
+const buildScheduleCommands = (shifts, helpers) => {
+  const { timeToMins, getSheetRowNum, getSheetCellByRow, formatTime12 } =
+    helpers;
 
   let processedShifts = [...shifts].sort(
     (a, b) => timeToMins(a.startTime) - timeToMins(b.startTime)
@@ -122,10 +99,34 @@ export const buildGASPayload = ({
       });
     });
 
+  return scheduleCommands;
+};
+
+/**
+ * Builds the frontend payload expected by the BOH schedule Google Apps Script.
+ * @param {Object} params
+ * @param {Array} params.shifts - Shift data for the selected week.
+ * @param {Array} params.staffs - Active staff data used for dashboard rows.
+ * @param {string} params.weekId - Selected week id, such as "2026-W19".
+ * @param {string} params.lang - Current UI language used for weekLabel.
+ * @param {Object} params.t - Current translation labels used for dashboard status.
+ * @param {Object} params.helpers - Time, week, and sheet cell helper functions.
+ * @returns {Object} GAS payload with weekId, weekLabel, scheduleCommands, dashboardRows, and shiftDataRows.
+ */
+export const buildGASPayload = ({
+  shifts,
+  staffs,
+  weekId,
+  lang,
+  t,
+  helpers, // timeToMins, getSheetRowNum などの関数をAppから受け取る
+}) => {
+  const { getWeekDisplayVerbose } = helpers;
+
   return {
     weekId,
     weekLabel: getWeekDisplayVerbose(weekId, lang),
-    scheduleCommands,
+    scheduleCommands: buildScheduleCommands(shifts, helpers),
     dashboardRows: buildDashboardRows(staffs, shifts, t),
     shiftDataRows: buildShiftDataRows(shifts),
   };
