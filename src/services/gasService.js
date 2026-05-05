@@ -1,17 +1,17 @@
 // src/services/gasService.js
 
 /**
- * GAS（Google Apps Script）へデータを同期するサービス
+ * Builds the frontend payload expected by the BOH schedule Google Apps Script.
  * @param {Object} params
- * @param {string} params.gasUrl - GASのウェブアプリURL
- * @param {Array} params.shifts - 同期するシフトデータ
- * @param {Array} params.staffs - スタッフデータ
- * @param {Date} params.currentWeekStart - 表示中の週の開始日
- * @param {Function} params.formatDate - 日付フォーマット関数
- * @param {Function} params.formatTime12 - 時間フォーマット関数
+ * @param {Array} params.shifts - Shift data for the selected week.
+ * @param {Array} params.staffs - Active staff data used for dashboard rows.
+ * @param {string} params.weekId - Selected week id, such as "2026-W19".
+ * @param {string} params.lang - Current UI language used for weekLabel.
+ * @param {Object} params.t - Current translation labels used for dashboard status.
+ * @param {Object} params.helpers - Time, week, and sheet cell helper functions.
+ * @returns {Object} GAS payload with weekId, weekLabel, scheduleCommands, dashboardRows, and shiftDataRows.
  */
-export const syncToGAS = async ({
-  gasUrl,
+export const buildGASPayload = ({
   shifts,
   staffs,
   weekId,
@@ -110,7 +110,7 @@ export const syncToGAS = async ({
     return [staff.name, current, staff.target, '', rem, statusLabel];
   });
 
-  const payload = {
+  return {
     weekId,
     weekLabel: getWeekDisplayVerbose(weekId, lang),
     scheduleCommands,
@@ -125,6 +125,36 @@ export const syncToGAS = async ({
       s.totalHours,
     ]),
   };
+};
+
+/**
+ * GAS（Google Apps Script）へデータを同期するサービス
+ * @param {Object} params
+ * @param {string} params.gasUrl - GASのウェブアプリURL
+ * @param {Array} params.shifts - 同期するシフトデータ
+ * @param {Array} params.staffs - スタッフデータ
+ * @param {string} params.weekId - 同期する週ID
+ * @param {string} params.lang - 現在の表示言語
+ * @param {Object} params.t - 翻訳ラベル
+ * @param {Object} params.helpers - 時刻、週表示、シートセル変換のヘルパー関数
+ */
+export const syncToGAS = async ({
+  gasUrl,
+  shifts,
+  staffs,
+  weekId,
+  lang,
+  t,
+  helpers, // timeToMins, getSheetRowNum などの関数をAppから受け取る
+}) => {
+  const payload = buildGASPayload({
+    shifts,
+    staffs,
+    weekId,
+    lang,
+    t,
+    helpers,
+  });
 
   return await fetch(gasUrl, {
     method: 'POST',
