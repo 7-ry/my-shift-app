@@ -1,14 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from './firebase';
-import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  query,
-  writeBatch,
-  orderBy,
-} from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // components import
@@ -41,6 +33,7 @@ import {
   DRAG_THRESHOLD,
 } from './constants/config';
 import { useWeekShifts } from './hooks/useWeekShifts';
+import { useStaffs } from './hooks/useStaffs';
 
 function App() {
   const [lang, setLang] = useState(
@@ -98,36 +91,7 @@ function App() {
     localStorage.setItem('appLang', lang);
   }, [lang]);
 
-  const fetchStaffs = useCallback(async () => {
-    if (!user) return; // 🌟 ログイン前は実行しない
-    const q = query(collection(db, 'staffs'), orderBy('order', 'asc'));
-    const snapshot = await getDocs(q);
-    const list = snapshot.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((s) => s.isActive !== false);
-    if (list.length === 0 && !hasInitialized.current) {
-      if (isReadOnly) return;
-      hasInitialized.current = true;
-      const initial = [
-        { name: 'KANA', color: '#bae6fd', target: 39, order: 0 },
-        { name: 'RYUSHIN', color: '#bbf7d0', target: 38, order: 1 },
-        { name: 'SAYAKA', color: '#e9d5ff', target: 24, order: 2 },
-      ];
-      const batch = writeBatch(db);
-      initial.forEach((s) => batch.set(doc(collection(db, 'staffs')), s));
-      await batch.commit();
-      window.location.reload();
-      return;
-    }
-    setStaffs(list);
-    if (list.length > 0) {
-      setSelectedStaff((prev) => prev || list[0].name);
-    }
-  }, [isReadOnly, user]);
-
-  useEffect(() => {
-    fetchStaffs();
-  }, [fetchStaffs]);
+  useStaffs({ user, isReadOnly, hasInitialized, setStaffs, setSelectedStaff });
 
   useWeekShifts({ user, weekId, setShifts });
 
