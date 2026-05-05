@@ -6,7 +6,6 @@ import {
   getDocs,
   doc,
   query,
-  where,
   writeBatch,
   orderBy,
 } from 'firebase/firestore';
@@ -41,6 +40,7 @@ import {
   ROW_HEIGHT,
   DRAG_THRESHOLD,
 } from './constants/config';
+import { useWeekShifts } from './hooks/useWeekShifts';
 
 function App() {
   const [lang, setLang] = useState(
@@ -129,16 +129,7 @@ function App() {
     fetchStaffs();
   }, [fetchStaffs]);
 
-  useEffect(() => {
-    if (!user) return; // 🌟 ログイン前は実行しない
-    localStorage.setItem('lastViewedWeek', weekId);
-    const fetchShifts = async () => {
-      const q = query(collection(db, 'shifts'), where('weekId', '==', weekId));
-      const querySnapshot = await getDocs(q);
-      setShifts(querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-    };
-    fetchShifts();
-  }, [weekId, user]);
+  useWeekShifts({ user, weekId, setShifts });
 
   const {
     handlePointerMove,
