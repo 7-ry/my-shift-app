@@ -1,17 +1,6 @@
 // src/services/gasService.js
 
-/**
- * GAS（Google Apps Script）へデータを同期するサービス
- * @param {Object} params
- * @param {string} params.gasUrl - GASのウェブアプリURL
- * @param {Array} params.shifts - 同期するシフトデータ
- * @param {Array} params.staffs - スタッフデータ
- * @param {Date} params.currentWeekStart - 表示中の週の開始日
- * @param {Function} params.formatDate - 日付フォーマット関数
- * @param {Function} params.formatTime12 - 時間フォーマット関数
- */
-export const syncToGAS = async ({
-  gasUrl,
+const buildGASPayload = ({
   shifts,
   staffs,
   weekId,
@@ -110,7 +99,7 @@ export const syncToGAS = async ({
     return [staff.name, current, staff.target, '', rem, statusLabel];
   });
 
-  const payload = {
+  return {
     weekId,
     weekLabel: getWeekDisplayVerbose(weekId, lang),
     scheduleCommands,
@@ -125,6 +114,35 @@ export const syncToGAS = async ({
       s.totalHours,
     ]),
   };
+};
+
+/**
+ * GAS（Google Apps Script）へデータを同期するサービス
+ * @param {Object} params
+ * @param {string} params.gasUrl - GASのウェブアプリURL
+ * @param {Array} params.shifts - 同期するシフトデータ
+ * @param {Array} params.staffs - スタッフデータ
+ * @param {Date} params.currentWeekStart - 表示中の週の開始日
+ * @param {Function} params.formatDate - 日付フォーマット関数
+ * @param {Function} params.formatTime12 - 時間フォーマット関数
+ */
+export const syncToGAS = async ({
+  gasUrl,
+  shifts,
+  staffs,
+  weekId,
+  lang,
+  t,
+  helpers, // timeToMins, getSheetRowNum などの関数をAppから受け取る
+}) => {
+  const payload = buildGASPayload({
+    shifts,
+    staffs,
+    weekId,
+    lang,
+    t,
+    helpers,
+  });
 
   return await fetch(gasUrl, {
     method: 'POST',
