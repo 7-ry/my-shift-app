@@ -1,5 +1,16 @@
 // src/services/gasService.js
 
+const buildShiftDataRows = (shifts) =>
+  shifts.map((s) => [
+    s.day,
+    s.staffName,
+    s.startTime,
+    s.endTime,
+    s.lane,
+    s.breakHours,
+    s.totalHours,
+  ]);
+
 /**
  * Builds the frontend payload expected by the BOH schedule Google Apps Script.
  * @param {Object} params
@@ -115,15 +126,7 @@ export const buildGASPayload = ({
     weekLabel: getWeekDisplayVerbose(weekId, lang),
     scheduleCommands,
     dashboardRows,
-    shiftDataRows: shifts.map((s) => [
-      s.day,
-      s.staffName,
-      s.startTime,
-      s.endTime,
-      s.lane,
-      s.breakHours,
-      s.totalHours,
-    ]),
+    shiftDataRows: buildShiftDataRows(shifts),
   };
 };
 
