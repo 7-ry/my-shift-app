@@ -4,7 +4,7 @@ Last updated: 2026-05-21
 
 ## Repository State
 
-- Current branch at inspection: `codex/add-ci-workflow`
+- Current branch at inspection: `codex/extract-template-logic`
 - Working tree before this CI update: clean except existing untracked `.tmp.driveupload/`
 - Latest known HEAD: `406e999` `Merge pull request #13 from 7-ry/codex/plan-staffs-read-hook`
 - Existing docs before this update: `docs/gas-sync-spec.md`
@@ -34,13 +34,15 @@ Last updated: 2026-05-21
 - Extracted week navigation into `src/hooks/useWeekNavigation.js`.
 - Extracted Firebase Auth state handling into `src/hooks/useAuthUser.js`.
 - Extracted shift creation into `src/hooks/useShiftCreation.js`.
+- Extracted shift template save logic into `src/hooks/useShiftTemplates.js`.
 - Added `docs/test-plan.md`.
 - Added `.github/workflows/ci.yml` for pull request and `codex/architecture-cleanup` checks.
 
 ## Partially Completed Work
 
 - Firestore read logic has started moving out of `src/App.jsx`.
-- `src/App.jsx` still owns template save and GAS sync orchestration.
+- `src/App.jsx` still owns GAS sync orchestration.
+- Template apply/delete behavior currently remains in `src/components/CopyWeekModal.jsx`.
 - Firestore write behavior remains mostly in `src/App.jsx` and components.
 
 ## Pending Work
