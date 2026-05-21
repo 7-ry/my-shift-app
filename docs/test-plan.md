@@ -1,6 +1,6 @@
 # Test Plan
 
-This checklist is for validating `codex/architecture-cleanup` before merging into `main`. The app is production-used for restaurant shift scheduling, so run the required checks before merge and use the manual sections for business-critical regression coverage.
+This checklist is for validating changes before merging into main. The app is production-used for restaurant shift scheduling, so run the required checks before merge and use the manual sections for business-critical regression coverage.
 
 ## Automated Checks
 
