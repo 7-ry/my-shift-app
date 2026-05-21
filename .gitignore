@@ -27,4 +27,5 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Google Drive temporary upload directory
 .tmp.driveupload/
