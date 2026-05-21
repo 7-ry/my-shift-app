@@ -23,6 +23,7 @@ import {
   getSheetRowNum,
   getSheetCellByRow,
 } from './utils/helpers.js';
+import { buildDashboardData } from './utils/dashboardData';
 import { useShiftDrag } from './hooks/useShiftDrag';
 import {
   translations,
@@ -251,18 +252,7 @@ function App() {
     }
   };
 
-  const dashboardData = staffs.map((staff) => {
-    const total = shifts
-      .filter((s) => s.staffName === staff.name)
-      .reduce((acc, s) => acc + s.totalHours, 0);
-    const totalFixed = Math.round(total * 100) / 100;
-    return {
-      ...staff,
-      currentHours: totalFixed,
-      remaining: Math.floor((staff.target - totalFixed) * 100) / 100,
-      progressPercent: Math.min((totalFixed / staff.target) * 100, 100),
-    };
-  });
+  const dashboardData = buildDashboardData(staffs, shifts);
 
   // 1. Login
   if (loading) {
