@@ -35,6 +35,7 @@ Last updated: 2026-05-21
 - Extracted Firebase Auth state handling into `src/hooks/useAuthUser.js`.
 - Extracted shift creation into `src/hooks/useShiftCreation.js`.
 - Extracted shift template save logic into `src/hooks/useShiftTemplates.js`.
+- Extracted copy week logic into `src/hooks/useCopyWeek.js`.
 - Added `docs/test-plan.md`.
 - Added `.github/workflows/ci.yml` for pull request and `codex/architecture-cleanup` checks.
 
@@ -43,6 +44,7 @@ Last updated: 2026-05-21
 - Firestore read logic has started moving out of `src/App.jsx`.
 - `src/App.jsx` still owns GAS sync orchestration.
 - Template apply/delete behavior currently remains in `src/components/CopyWeekModal.jsx`.
+- Copy week modal UI state and rendering remain in `src/components/CopyWeekModal.jsx`.
 - Firestore write behavior remains mostly in `src/App.jsx` and components.
 
 ## Pending Work

@@ -8,10 +8,10 @@ import {
   writeBatch,
   doc,
   orderBy,
-  limit,
   deleteDoc, // 🌟 追加
 } from 'firebase/firestore';
 import { getWeekDisplayVerbose } from '../utils/helpers';
+import { useCopyWeek } from '../hooks/useCopyWeek';
 
 const CopyWeekModal = ({
   showCopyModal,
@@ -24,10 +24,17 @@ const CopyWeekModal = ({
   handleSaveAsTemplate, // 🌟 追加
   shifts, // 🌟 追加
 }) => {
-  const [availableWeeks, setAvailableWeeks] = useState([]);
-  const [selectedWeek, setSelectedWeek] = useState('');
   const [templates, setTemplates] = useState([]); // 🌟 テンプレート一覧用
   const [newTemplateName, setNewTemplateName] = useState(''); // 🌟 保存入力用
+  const { availableWeeks, selectedWeek, setSelectedWeek, executeCopy } =
+    useCopyWeek({
+      showCopyModal,
+      weekId,
+      setShifts,
+      setShowCopyModal,
+      setIsProcessing,
+      t,
+    });
 
   const fetchTemplates = async () => {
     try {
@@ -45,20 +52,6 @@ const CopyWeekModal = ({
   // 存在する週のリストとテンプレートの両方を取得
   useEffect(() => {
     if (showCopyModal) {
-      const fetchWeeks = async () => {
-        const weekQ = query(
-          collection(db, 'shifts'),
-          orderBy('day'),
-          limit(500)
-        );
-        const weekSnap = await getDocs(weekQ);
-        const weeks = [
-          ...new Set(weekSnap.docs.map((d) => d.data().weekId)),
-        ].filter((id) => id !== weekId);
-        setAvailableWeeks(weeks.sort().reverse());
-      };
-
-      fetchWeeks();
       fetchTemplates(); // 🌟 初期表示時に実行
     }
   }, [showCopyModal, weekId]);
@@ -111,48 +104,6 @@ const CopyWeekModal = ({
       setTemplates((prev) => prev.filter((t) => t.id !== id));
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  // 既存の過去週コピー処理
-  const executeCopy = async () => {
-    if (!selectedWeek) return;
-    if (!window.confirm(t.confirmCopy || 'Copy shifts to current week?'))
-      return;
-
-    setIsProcessing(true);
-    try {
-      const batch = writeBatch(db);
-      const currentQ = query(
-        collection(db, 'shifts'),
-        where('weekId', '==', weekId)
-      );
-      const currentSnap = await getDocs(currentQ);
-      currentSnap.forEach((d) => batch.delete(d.ref));
-
-      const sourceQ = query(
-        collection(db, 'shifts'),
-        where('weekId', '==', selectedWeek)
-      );
-      const sourceSnap = await getDocs(sourceQ);
-
-      const newShifts = [];
-      sourceSnap.forEach((docSnap) => {
-        const { id: _oldId, ...cleanData } = docSnap.data();
-        const newDocRef = doc(collection(db, 'shifts'));
-        const duplicatedData = { ...cleanData, weekId: weekId };
-        batch.set(newDocRef, duplicatedData);
-        newShifts.push({ id: newDocRef.id, ...duplicatedData });
-      });
-
-      await batch.commit();
-      setShifts(newShifts);
-      setShowCopyModal(false);
-      alert('Success!');
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsProcessing(false);
     }
   };
 
