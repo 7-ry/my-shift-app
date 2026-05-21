@@ -50,8 +50,11 @@ Last updated: 2026-05-21
 
 ## Pending Work
 
-- Confirm CI and complete `docs/test-plan.md` manual regression before merging `codex/architecture-cleanup` into `main`.
-- Perform final PR review and merge-readiness check.
+- Complete the remaining required refactors before merging `codex/architecture-cleanup` into `main`.
+- Next PR: extract Header clear-week logic.
+- Later required refactors: CopyWeekModal template fetch/apply/delete, EditShiftModal save/delete, StaffManagementModal writes, and GAS sync orchestration.
+- Confirm CI and complete `docs/test-plan.md` manual regression after the required refactors.
+- Perform final PR review and merge-readiness check only after the required refactors are complete.
 
 ## Verification History
 
@@ -75,3 +78,4 @@ The architecture cleanup follow-ups also passed these commands locally after eac
 - Preserve read-only viewer behavior, edit lock behavior, drag behavior, and Japanese/English switching.
 - Initial staff auto-create behavior is business-sensitive and currently lives in `useStaffs`.
 - GAS sync uses `mode: 'no-cors'`, so frontend success does not confirm receiver-side success.
+- The project owner decided main merge is deferred until remaining necessary refactors reduce risky embedded write logic.

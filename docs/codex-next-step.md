@@ -2,34 +2,31 @@
 
 ## Safest Next Implementation Step
 
-After the architecture audit, the safest next step is a final merge-readiness PR for `codex/architecture-cleanup`.
+After the owner decision, do not proceed to final main merge yet. The safest next PR is Header clear-week logic extraction, because it is a small isolated destructive Firestore write that can be moved behind a hook or helper while preserving current UI behavior.
 
 ## Target Files
 
 Likely files to inspect:
 
-- `.github/workflows/ci.yml`
-- `docs/test-plan.md`
 - `src/App.jsx`
+- `src/components/Header.jsx`
 - `src/hooks`
-- `src/utils`
-- `src/services/gasService.js`
-- `src/components/CopyWeekModal.jsx`
-- `src/hooks/useCopyWeek.js`
+- `docs/architecture-audit.md`
 - `docs/architecture-audit.md`
 
 ## Exact Constraints
 
-- Do not change application behavior during merge-readiness review.
+- Do not change rendered UI.
 - Do not change Firestore collection names or document shapes.
 - Do not change Google Apps Script payload shape.
-- Do not run real production GAS sync without explicit approval.
-- Use `docs/test-plan.md` for manual regression coverage.
-- Use `docs/architecture-audit.md` to decide whether any remaining refactor is truly required before main.
+- Preserve Header props unless a tiny wiring change is strictly necessary.
+- Preserve clear-week confirmation, batch deletion, `setShifts([])`, and menu close behavior.
+- Preserve read-only behavior and edit-lock semantics.
+- Do not change GAS sync, drag, week navigation, auth, copy week, or template behavior.
 
 ## Verification Commands
 
-Run before merge:
+Run after the next refactor:
 
 ```bash
 npm test -- --run
@@ -39,20 +36,15 @@ npm run lint
 
 ## Manual Checks
 
-Use `docs/test-plan.md`. Prioritize:
+For the Header clear-week PR, manually verify:
 
-- Login/logout and read-only viewer mode.
-- Edit lock behavior.
-- Staff loading and staff management.
-- Shift creation, edit, delete, and drag.
-- Save, apply, and delete shift templates.
-- Weekly navigation, jump to today, and reload behavior.
-- Dashboard totals.
-- Copy week and save shift template.
-- GAS sync entry point without real production sync.
-- Read-only viewer and edit lock behavior are unchanged.
-- Japanese/English switching still works.
+- The menu still opens/closes.
+- Clear week still asks `t.confirmClear`.
+- Cancel leaves shifts untouched.
+- Confirm deletes only current displayed shifts and then clears local `shifts`.
+- Read-only users still cannot access the clear action.
+- Other Header actions still work: sync entry point, copy modal, staff modal, logout, language switching, week navigation, edit lock.
 
 ## Recommendation
 
-Do not start another refactor by default. Prefer final CI confirmation, manual regression, and owner review before merging `codex/architecture-cleanup` into `main`.
+Implement Header clear-week extraction first, then continue the remaining required refactor roadmap in `docs/architecture-audit.md`. Defer main merge until those required refactors and final regression are complete.

@@ -24,22 +24,25 @@ This plan replaces the earlier ordering with the actual current repository state
 
 ## Current Phase
 
-- Final PR review and merge-readiness check.
+- Complete remaining required refactors before merging `codex/architecture-cleanup` into `main`.
 
 ## Next Safe Order
 
-1. Confirm CI passes on pull request.
-2. Run local `npm test -- --run`, `npm run build`, and `npm run lint` if needed.
-3. Use `docs/test-plan.md` for manual regression coverage.
-4. Use `docs/architecture-audit.md` to confirm no remaining refactor is required before main.
-5. Run a final PR review and merge-readiness check.
+1. Extract Header clear-week logic.
+2. Extract CopyWeekModal template fetch/apply/delete logic.
+3. Extract EditShiftModal save/delete logic.
+4. Extract StaffManagementModal write logic in small safe batches.
+5. Extract GAS sync orchestration from `App.jsx`.
+6. Consider a small Firestore service layer only if it reduces duplication without changing behavior.
+7. Confirm CI and local checks.
+8. Use `docs/test-plan.md` for manual regression coverage.
+9. Run final PR review and merge-readiness check.
 
 ## Later Phases
 
-- Consider a small Firestore service layer only after hooks are stable.
 - Add focused tests for extracted pure calculations where the test setup stays lightweight.
 - Consider manual browser regression with a safe non-production Firebase/GAS setup when available.
-- Optionally extract remaining component-embedded writes after main if maintenance pressure justifies it.
+- Continue reducing prop drilling in `App.jsx` if maintenance pressure justifies it.
 
 ## Deferred Decisions
 
@@ -49,6 +52,7 @@ This plan replaces the earlier ordering with the actual current repository state
 - Do not change Apps Script receiver behavior.
 - Do not change UI design as part of architecture cleanup.
 - Do not run real GAS sync without explicit approval.
+- Defer drag refactor unless a concrete bug exists.
 
 ## Difference From The Original Plan
 
