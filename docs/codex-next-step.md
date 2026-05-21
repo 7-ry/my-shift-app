@@ -2,16 +2,15 @@
 
 ## Safest Next Implementation Step
 
-After the owner decision, do not proceed to final main merge yet. The safest next PR is Header clear-week logic extraction, because it is a small isolated destructive Firestore write that can be moved behind a hook or helper while preserving current UI behavior.
+After Header clear-week logic extraction, do not proceed to final main merge yet. The safest next PR is CopyWeekModal template fetch/apply/delete extraction, because template behavior still contains Firestore reads/writes inside the modal component.
 
 ## Target Files
 
 Likely files to inspect:
 
 - `src/App.jsx`
-- `src/components/Header.jsx`
+- `src/components/CopyWeekModal.jsx`
 - `src/hooks`
-- `docs/architecture-audit.md`
 - `docs/architecture-audit.md`
 
 ## Exact Constraints
@@ -19,10 +18,10 @@ Likely files to inspect:
 - Do not change rendered UI.
 - Do not change Firestore collection names or document shapes.
 - Do not change Google Apps Script payload shape.
-- Preserve Header props unless a tiny wiring change is strictly necessary.
-- Preserve clear-week confirmation, batch deletion, `setShifts([])`, and menu close behavior.
+- Preserve CopyWeekModal props unless a tiny wiring change is strictly necessary.
+- Preserve template fetch, apply, delete, alert/confirmation, modal close, selected week, and `setShifts` behavior.
 - Preserve read-only behavior and edit-lock semantics.
-- Do not change GAS sync, drag, week navigation, auth, copy week, or template behavior.
+- Do not change GAS sync, drag, week navigation, auth, Header clear-week, or past-week copy behavior.
 
 ## Verification Commands
 
@@ -36,15 +35,15 @@ npm run lint
 
 ## Manual Checks
 
-For the Header clear-week PR, manually verify:
+For the CopyWeekModal template PR, manually verify:
 
-- The menu still opens/closes.
-- Clear week still asks `t.confirmClear`.
-- Cancel leaves shifts untouched.
-- Confirm deletes only current displayed shifts and then clears local `shifts`.
-- Read-only users still cannot access the clear action.
-- Other Header actions still work: sync entry point, copy modal, staff modal, logout, language switching, week navigation, edit lock.
+- The copy modal still opens/closes.
+- Existing templates still load.
+- Applying a template still writes shifts to the current week and updates visible shifts.
+- Deleting a template still removes it from the template list.
+- Read-only users still cannot access edit/template actions.
+- Past-week copy behavior still works through the existing `useCopyWeek` path.
 
 ## Recommendation
 
-Implement Header clear-week extraction first, then continue the remaining required refactor roadmap in `docs/architecture-audit.md`. Defer main merge until those required refactors and final regression are complete.
+Implement CopyWeekModal template extraction next, then continue the remaining required refactor roadmap in `docs/architecture-audit.md`. Defer main merge until those required refactors and final regression are complete.

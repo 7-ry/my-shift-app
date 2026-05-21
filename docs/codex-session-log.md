@@ -21,6 +21,7 @@ This log reconstructs the current project state from local git history and known
 - Current session: added GitHub Actions CI for test, build, and lint.
 - Architecture reassessment: added `docs/architecture-audit.md` and reclassified remaining work before main.
 - Owner decision: defer main merge and complete remaining necessary refactors before final regression.
+- Header clear-week extraction: moved the destructive current-week clear write from `Header` into `useClearWeek`.
 
 ## GAS Sync Work Summary
 
@@ -55,4 +56,4 @@ This log reconstructs the current project state from local git history and known
 
 ## Decision
 
-With the owner decision in place, the next recommended step is Header clear-week logic extraction. Final merge-readiness is deferred until the remaining required refactors and final regression are complete.
+With Header clear-week extraction complete, the next recommended step is CopyWeekModal template fetch/apply/delete extraction. Final merge-readiness is deferred until the remaining required refactors and final regression are complete.
