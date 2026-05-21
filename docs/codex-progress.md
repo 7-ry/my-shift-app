@@ -38,6 +38,7 @@ Last updated: 2026-05-21
 - Extracted copy week logic into `src/hooks/useCopyWeek.js`.
 - Added `docs/test-plan.md`.
 - Added `.github/workflows/ci.yml` for pull request and `codex/architecture-cleanup` checks.
+- Added `docs/architecture-audit.md` to reassess the actual current architecture and remaining merge plan.
 
 ## Partially Completed Work
 
@@ -45,10 +46,11 @@ Last updated: 2026-05-21
 - `src/App.jsx` still owns GAS sync orchestration.
 - Template apply/delete behavior currently remains in `src/components/CopyWeekModal.jsx`.
 - Copy week modal UI state and rendering remain in `src/components/CopyWeekModal.jsx`.
-- Firestore write behavior remains mostly in `src/App.jsx` and components.
+- Some Firestore write behavior remains in components, including Header clear week, StaffManagementModal, EditShiftModal, and CopyWeekModal template apply/delete.
 
 ## Pending Work
 
+- Confirm CI and complete `docs/test-plan.md` manual regression before merging `codex/architecture-cleanup` into `main`.
 - Perform final PR review and merge-readiness check.
 
 ## Verification History
