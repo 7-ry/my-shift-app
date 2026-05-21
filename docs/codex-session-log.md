@@ -20,6 +20,7 @@ This log reconstructs the current project state from local git history and known
 - Documentation follow-up: added `docs/test-plan.md`.
 - Current session: added GitHub Actions CI for test, build, and lint.
 - Architecture reassessment: added `docs/architecture-audit.md` and reclassified remaining work before main.
+- Owner decision: defer main merge and complete remaining necessary refactors before final regression.
 
 ## GAS Sync Work Summary
 
@@ -54,4 +55,4 @@ This log reconstructs the current project state from local git history and known
 
 ## Decision
 
-With CI and the architecture audit in place, the next recommended step is a final PR review and merge-readiness check using `docs/test-plan.md` and `docs/architecture-audit.md`.
+With the owner decision in place, the next recommended step is Header clear-week logic extraction. Final merge-readiness is deferred until the remaining required refactors and final regression are complete.

@@ -4,7 +4,7 @@ Last updated: 2026-05-21
 
 ## 1. Purpose
 
-This audit records the actual current architecture of the production-used restaurant shift scheduling app before deciding whether `codex/architecture-cleanup` is ready to merge into `main`.
+This audit records the actual current architecture of the production-used restaurant shift scheduling app and the remaining refactor roadmap before `codex/architecture-cleanup` can merge into `main`.
 
 The goal of the architecture-cleanup phase is not to redesign the app. The goal is to make the code safer, clearer, easier to maintain, and easier to verify while preserving production behavior.
 
@@ -15,7 +15,8 @@ Facts found from project docs and current workflow:
 - `main` is connected to Firebase production deployment.
 - `codex/architecture-cleanup` is the integration branch for this cleanup phase.
 - Small PRs should merge into `codex/architecture-cleanup`.
-- `codex/architecture-cleanup` should merge into `main` only after final automated checks and manual regression.
+- The project owner decided not to merge `codex/architecture-cleanup` into `main` yet.
+- `codex/architecture-cleanup` should merge into `main` only after the remaining required refactors, final automated checks, and manual regression.
 - `.github/workflows/ci.yml` runs on pull requests and pushes to `codex/architecture-cleanup`.
 
 Safety rule:
@@ -92,7 +93,7 @@ Facts found in `src/App.jsx`:
 Recommendation:
 
 - `App.jsx` is now acceptable as the integration shell for this cleanup phase.
-- Further extraction is possible, but not required before merging if final regression passes.
+- Further extraction should focus on remaining risky embedded write logic before merging to `main`.
 
 ## 5. Extracted Hooks and Their Responsibilities
 
@@ -176,7 +177,7 @@ Facts found in `src/components`:
 Recommendation:
 
 - Component-embedded write logic should be documented as known remaining coupling.
-- Extracting these writes is useful later, but not required before main if regression checks pass.
+- The most risky embedded writes should be extracted before main so future feature work has clearer boundaries.
 
 ## 7. Services and Utils Responsibilities
 
@@ -237,6 +238,11 @@ Completed work, based on current code and docs:
 
 ### Required Before Main
 
+- Extract Header clear-week logic into a focused hook or helper while preserving Header props and clear-week behavior.
+- Extract CopyWeekModal template fetch/apply/delete logic into a focused hook or helper while preserving modal UI and template behavior.
+- Extract EditShiftModal save/delete write logic into a focused hook or helper while preserving edit/delete UI behavior.
+- Extract StaffManagementModal write logic into focused hooks/helpers in small batches while preserving staff order, inactive staff behavior, and the current staff-name/color cascade behavior.
+- Extract GAS sync orchestration from `App.jsx` into a focused hook or helper while preserving `syncToGAS` signature, `mode: 'no-cors'`, confirmation/alert behavior, and payload shape.
 - Confirm CI passes for the integration PR.
 - Run or confirm:
   - `npm test -- --run`
@@ -255,28 +261,23 @@ Completed work, based on current code and docs:
 
 ### Recommended Before Main
 
-- Do a final code-review pass focused on component-embedded write logic:
-  - `Header` clear-week action,
-  - `EditShiftModal` shift save/delete,
-  - `StaffManagementModal` staff writes and shift cascade updates,
-  - `CopyWeekModal` template fetch/apply/delete.
+- Consider whether the extracted hooks/helpers are enough, or whether a very small Firestore service layer would reduce duplication without changing behavior.
 - Manually verify staff name/color update behavior, including whether past shifts are intentionally updated.
 - Manually verify copy week and template apply on safe test data.
 - Confirm `.github/workflows/ci.yml` does not interfere with Firebase Hosting workflows.
+- Do a final code-review pass focused on read-only mode, edit lock, drag behavior, and GAS payload safety.
 
 ### Optional After Main
 
-- Extract clear-week logic from `Header`.
-- Extract shift edit/delete logic from `EditShiftModal`.
-- Extract staff management writes from `StaffManagementModal`.
-- Extract template fetch/apply/delete logic from `CopyWeekModal`.
 - Add focused tests for future pure functions or service functions after extraction.
-- Consider a small Firestore service layer once hooks and components are stable.
+- Expand the Firestore service layer if the required extractions prove it is useful.
 - Improve stale-response/error handling for other Firestore reads and writes where useful.
+- Continue reducing prop drilling in `App.jsx` if maintenance pressure justifies it.
 
 ### Deferred / Do Not Touch Now
 
 - Do not refactor drag behavior unless there is a concrete bug.
+- Review drag behavior for risk, but defer drag refactor by default.
 - Do not change GAS payload shape.
 - Do not change Apps Script receiver behavior.
 - Do not change Firestore collection names.
@@ -288,23 +289,22 @@ Completed work, based on current code and docs:
 
 This architecture-cleanup phase is done when:
 
+- The remaining required refactors above are complete and merged into `codex/architecture-cleanup`.
 - CI passes on the integration PR.
 - Local `npm test -- --run`, `npm run build`, and `npm run lint` pass or are confirmed from CI.
 - Manual checks in `docs/test-plan.md` are completed for the business-critical flows.
 - No production behavior changes are found in login, staff management, shift creation/edit/delete/drag, weekly navigation, copy week, template save/apply/delete, read-only viewer, edit lock, language switching, or GAS sync entry point.
 - The final review confirms Firestore collection names and GAS payload shape are unchanged.
-- `codex/architecture-cleanup` is merged into `main` only after the project owner accepts the regression result.
+- `codex/architecture-cleanup` is merged into `main` only after the project owner accepts the remaining-refactor result and final regression result.
 
 ## 11. Next Recommended PR
 
-Next PR should be a merge-readiness PR for `codex/architecture-cleanup`.
+Next PR should extract Header clear-week logic.
 
 Recommended scope:
 
-- No app refactor unless final review finds a specific blocker.
-- Run/confirm CI.
-- Walk through `docs/test-plan.md`.
-- Record any manual test results or unresolved risks.
-- Prepare the final merge decision for `main`.
-
-If one more code PR is desired before main, the safest candidate is extracting Header's clear-week action. That should remain optional because it is a destructive Firestore write and final regression is likely higher value at this stage.
+- Move the destructive clear-week Firestore write out of `Header` into a focused hook or helper.
+- Preserve current confirmation text, `writeBatch` behavior, `shifts` deletion behavior, `setShifts([])`, read-only hiding, and menu close behavior.
+- Keep Header props unchanged if possible.
+- Run `npm test -- --run`, `npm run build`, and `npm run lint`.
+- Manually verify clear-week behavior on safe test data.
