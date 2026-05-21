@@ -76,7 +76,7 @@ Expected result:
   - Accept and confirm the shift is created.
 - Shift editing:
   - Open an existing shift.
-  - Change start/end/break values.
+  - Change start/end/extended end/break values.
   - Confirm total hours and displayed schedule block update.
 - Shift deletion:
   - Delete a shift from the edit flow.
