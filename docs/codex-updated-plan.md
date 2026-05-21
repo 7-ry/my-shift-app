@@ -20,6 +20,7 @@ This plan replaces the earlier ordering with the actual current repository state
 - Copy week hook extraction.
 - Test plan documentation in `docs/test-plan.md`.
 - CI workflow for pull requests and pushes to `codex/architecture-cleanup`.
+- Architecture audit documentation in `docs/architecture-audit.md`.
 
 ## Current Phase
 
@@ -30,13 +31,15 @@ This plan replaces the earlier ordering with the actual current repository state
 1. Confirm CI passes on pull request.
 2. Run local `npm test -- --run`, `npm run build`, and `npm run lint` if needed.
 3. Use `docs/test-plan.md` for manual regression coverage.
-4. Run a final PR review and merge-readiness check.
+4. Use `docs/architecture-audit.md` to confirm no remaining refactor is required before main.
+5. Run a final PR review and merge-readiness check.
 
 ## Later Phases
 
 - Consider a small Firestore service layer only after hooks are stable.
 - Add focused tests for extracted pure calculations where the test setup stays lightweight.
 - Consider manual browser regression with a safe non-production Firebase/GAS setup when available.
+- Optionally extract remaining component-embedded writes after main if maintenance pressure justifies it.
 
 ## Deferred Decisions
 

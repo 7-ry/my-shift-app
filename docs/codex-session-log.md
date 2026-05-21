@@ -19,6 +19,7 @@ This log reconstructs the current project state from local git history and known
 - Architecture cleanup follow-ups: extracted dashboard data, week navigation, auth state handling, shift creation, template save logic, and copy week logic into focused utilities/hooks.
 - Documentation follow-up: added `docs/test-plan.md`.
 - Current session: added GitHub Actions CI for test, build, and lint.
+- Architecture reassessment: added `docs/architecture-audit.md` and reclassified remaining work before main.
 
 ## GAS Sync Work Summary
 
@@ -53,4 +54,4 @@ This log reconstructs the current project state from local git history and known
 
 ## Decision
 
-With CI in place, the next recommended step is a final PR review and merge-readiness check using `docs/test-plan.md`.
+With CI and the architecture audit in place, the next recommended step is a final PR review and merge-readiness check using `docs/test-plan.md` and `docs/architecture-audit.md`.

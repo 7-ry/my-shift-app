@@ -2,7 +2,7 @@
 
 ## Safest Next Implementation Step
 
-After the CI workflow is added, the safest next step is a final PR review and merge-readiness check for `codex/architecture-cleanup`.
+After the architecture audit, the safest next step is a final merge-readiness PR for `codex/architecture-cleanup`.
 
 ## Target Files
 
@@ -16,6 +16,7 @@ Likely files to inspect:
 - `src/services/gasService.js`
 - `src/components/CopyWeekModal.jsx`
 - `src/hooks/useCopyWeek.js`
+- `docs/architecture-audit.md`
 
 ## Exact Constraints
 
@@ -24,6 +25,7 @@ Likely files to inspect:
 - Do not change Google Apps Script payload shape.
 - Do not run real production GAS sync without explicit approval.
 - Use `docs/test-plan.md` for manual regression coverage.
+- Use `docs/architecture-audit.md` to decide whether any remaining refactor is truly required before main.
 
 ## Verification Commands
 
@@ -50,3 +52,7 @@ Use `docs/test-plan.md`. Prioritize:
 - GAS sync entry point without real production sync.
 - Read-only viewer and edit lock behavior are unchanged.
 - Japanese/English switching still works.
+
+## Recommendation
+
+Do not start another refactor by default. Prefer final CI confirmation, manual regression, and owner review before merging `codex/architecture-cleanup` into `main`.
