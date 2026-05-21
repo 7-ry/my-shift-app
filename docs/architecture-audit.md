@@ -191,7 +191,7 @@ Facts found in code:
 - `src/utils/helpers.js`
   - Time parsing and formatting.
   - Total hour calculation.
-  - week id and week label helpers.
+  - weekId and weekLabel helpers.
   - Google Sheets row/cell helpers.
 - `src/utils/dashboardData.js`
   - Pure dashboard calculation for current hours, remaining hours, and progress percent.
