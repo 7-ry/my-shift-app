@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from './firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 
 // components import
 import Header from './components/Header';
@@ -35,6 +35,7 @@ import {
 import { useWeekShifts } from './hooks/useWeekShifts';
 import { useStaffs } from './hooks/useStaffs';
 import { useWeekNavigation } from './hooks/useWeekNavigation';
+import { useAuthUser } from './hooks/useAuthUser';
 
 function App() {
   const [lang, setLang] = useState(
@@ -45,8 +46,7 @@ function App() {
   const [staffs, setStaffs] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [shifts, setShifts] = useState([]);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, isReadOnly } = useAuthUser();
   const [editingShift, setEditingShift] = useState(null);
   const { weekId, setWeekId, changeWeek, jumpToToday } = useWeekNavigation();
   const [showCopyModal, setShowCopyModal] = useState(false);
@@ -56,23 +56,7 @@ function App() {
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [loginPw, setLoginPw] = useState('');
   const [selectedShiftId, setSelectedShiftId] = useState(null);
-  const [isReadOnly, setIsReadOnly] = useState(false);
   const [isEditLocked, setIsEditLocked] = useState(true);
-
-  // 認証状態の監視（ブラウザを閉じてもログインを維持するための処理）
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        setUser(u);
-        setIsReadOnly(u.email === import.meta.env.VITE_FB_VIEWER_EMAIL);
-      } else {
-        setUser(null);
-        setIsReadOnly(false);
-      }
-      setLoading(false); //
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleLogout = async () => {
     if (window.confirm(t.logoutConfirm)) {
