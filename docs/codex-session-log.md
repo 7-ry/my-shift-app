@@ -16,7 +16,7 @@ This log reconstructs the current project state from local git history and known
 - PR #11: Hardened `useWeekShifts` with stale-response guard and Firestore error logging.
 - PR #12: Cleared shifts when the user is missing.
 - PR #13: Extracted staff fetching and initial staff bootstrap into `useStaffs`.
-- Architecture cleanup follow-ups: extracted dashboard data, week navigation, auth state handling, and shift creation into focused utilities/hooks.
+- Architecture cleanup follow-ups: extracted dashboard data, week navigation, auth state handling, shift creation, and template save logic into focused utilities/hooks.
 - Documentation follow-up: added `docs/test-plan.md`.
 - Current session: added GitHub Actions CI for test, build, and lint.
 

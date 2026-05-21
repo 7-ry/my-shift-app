@@ -14,6 +14,7 @@ Likely files to inspect:
 - `src/hooks`
 - `src/utils`
 - `src/services/gasService.js`
+- `src/components/CopyWeekModal.jsx`
 
 ## Exact Constraints
 
@@ -41,6 +42,7 @@ Use `docs/test-plan.md`. Prioritize:
 - Edit lock behavior.
 - Staff loading and staff management.
 - Shift creation, edit, delete, and drag.
+- Save, apply, and delete shift templates.
 - Weekly navigation, jump to today, and reload behavior.
 - Dashboard totals.
 - Copy week and save shift template.

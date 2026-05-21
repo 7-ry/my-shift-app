@@ -16,6 +16,7 @@ This plan replaces the earlier ordering with the actual current repository state
 - Week navigation extraction.
 - Auth state handling extraction.
 - Shift creation hook extraction.
+- Shift template save hook extraction.
 - Test plan documentation in `docs/test-plan.md`.
 - CI workflow for pull requests and pushes to `codex/architecture-cleanup`.
 
