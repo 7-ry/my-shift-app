@@ -15,6 +15,7 @@ Likely files to inspect:
 - `src/utils`
 - `src/services/gasService.js`
 - `src/components/CopyWeekModal.jsx`
+- `src/hooks/useCopyWeek.js`
 
 ## Exact Constraints
 
