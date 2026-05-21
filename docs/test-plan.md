@@ -98,6 +98,7 @@ Expected result:
   - Save a template from a week with shifts.
   - Confirm the success message appears.
   - Confirm saved template shifts exclude per-week IDs and retain recalculated total hours.
+  - Confirm templates can be deleted from the template list.
 - GAS sync entry point:
   - Confirm sync button is unavailable or blocked for read-only users.
   - Confirm editor sync prompts for confirmation with the selected week label.
