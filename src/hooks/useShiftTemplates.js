@@ -11,16 +11,20 @@ export const useShiftTemplates = ({
   t,
 }) => {
   const handleSaveAsTemplate = async (templateName) => {
-    if (isProcessing || isReadOnly || !templateName || shifts.length === 0)
+    if (
+      isProcessing ||
+      isReadOnly ||
+      !user ||
+      !templateName ||
+      shifts.length === 0
+    )
       return;
     setIsProcessing(true);
     try {
       // 🌟 保存用にデータをクリーンアップ（個別のIDやweekIdを除去）
       const templateShifts = shifts.map((shift) => {
-        const rest = { ...shift };
-        delete rest.id;
-        delete rest.weekId;
-        delete rest.totalHours;
+        const { id: _id, weekId: _weekId, totalHours: _totalHours, ...rest } =
+          shift;
         return {
           ...rest,
           totalHours: calcTotalHours(
