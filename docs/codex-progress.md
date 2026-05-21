@@ -1,11 +1,11 @@
 # Codex Progress
 
-Last updated: 2026-05-09
+Last updated: 2026-05-21
 
 ## Repository State
 
-- Current branch at inspection: `codex/add-progress-tracking-docs`
-- Working tree before creating these docs: clean
+- Current branch at inspection: `codex/add-ci-workflow`
+- Working tree before this CI update: clean except existing untracked `.tmp.driveupload/`
 - Latest known HEAD: `406e999` `Merge pull request #13 from 7-ry/codex/plan-staffs-read-hook`
 - Existing docs before this update: `docs/gas-sync-spec.md`
 - Existing hooks: `useShiftDrag.js`, `useStaffs.js`, `useWeekShifts.js`
@@ -30,22 +30,21 @@ Last updated: 2026-05-09
 - Hardened `useWeekShifts` with stale-response protection and Firestore error logging.
 - Cleared shifts when `user` is missing in `useWeekShifts`.
 - Extracted staff fetching and initial staff bootstrap into `src/hooks/useStaffs.js`.
+- Extracted dashboard data calculation into `src/utils/dashboardData.js`.
+- Extracted week navigation into `src/hooks/useWeekNavigation.js`.
+- Extracted Firebase Auth state handling into `src/hooks/useAuthUser.js`.
+- Extracted shift creation into `src/hooks/useShiftCreation.js`.
+- Added `docs/test-plan.md`.
+- Added `.github/workflows/ci.yml` for pull request and `codex/architecture-cleanup` checks.
 
 ## Partially Completed Work
 
 - Firestore read logic has started moving out of `src/App.jsx`.
-- `src/App.jsx` still owns auth state handling, week navigation, dashboard data calculation, shift creation, template save, and GAS sync orchestration.
+- `src/App.jsx` still owns template save and GAS sync orchestration.
 - Firestore write behavior remains mostly in `src/App.jsx` and components.
 
 ## Pending Work
 
-- Commit these tracking docs.
-- Extract `dashboardData` calculation from `src/App.jsx`.
-- Extract week navigation logic from `src/App.jsx`.
-- Extract auth state handling from `src/App.jsx`.
-- Extract remaining shift creation logic in small steps.
-- Create `docs/test-plan.md`.
-- Add a CI workflow for test, build, and lint.
 - Perform final PR review and merge-readiness check.
 
 ## Verification History
@@ -59,6 +58,8 @@ npm run lint
 ```
 
 The latest staff hook extraction passed all three commands. Build has consistently shown only the existing Vite chunk size warning.
+
+The architecture cleanup follow-ups also passed these commands locally after each implementation step. The CI workflow now runs the same commands on pull requests and pushes to `codex/architecture-cleanup`.
 
 ## Risk Notes
 

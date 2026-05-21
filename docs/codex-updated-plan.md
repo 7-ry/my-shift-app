@@ -12,25 +12,23 @@ This plan replaces the earlier ordering with the actual current repository state
 - Week shift Firestore read extraction into `useWeekShifts`.
 - `useWeekShifts` robustness follow-ups.
 - Staff fetching and initial staff bootstrap extraction into `useStaffs`.
+- Dashboard data calculation extraction.
+- Week navigation extraction.
+- Auth state handling extraction.
+- Shift creation hook extraction.
+- Test plan documentation in `docs/test-plan.md`.
+- CI workflow for pull requests and pushes to `codex/architecture-cleanup`.
 
 ## Current Phase
 
-- Create progress tracking documents:
-  - `docs/codex-progress.md`
-  - `docs/codex-next-step.md`
-  - `docs/codex-session-log.md`
-  - `docs/codex-updated-plan.md`
+- Final PR review and merge-readiness check.
 
 ## Next Safe Order
 
-1. Commit these progress docs.
-2. Extract `dashboardData` calculation from `src/App.jsx`.
-3. Extract week navigation logic from `src/App.jsx`.
-4. Extract auth state handling from `src/App.jsx`.
-5. Extract remaining shift creation logic in small steps.
-6. Create `docs/test-plan.md`.
-7. Add a CI workflow for `npm test -- --run`, `npm run build`, and `npm run lint`.
-8. Run a final PR review and merge-readiness check.
+1. Confirm CI passes on pull request.
+2. Run local `npm test -- --run`, `npm run build`, and `npm run lint` if needed.
+3. Use `docs/test-plan.md` for manual regression coverage.
+4. Run a final PR review and merge-readiness check.
 
 ## Later Phases
 

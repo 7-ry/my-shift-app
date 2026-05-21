@@ -16,7 +16,9 @@ This log reconstructs the current project state from local git history and known
 - PR #11: Hardened `useWeekShifts` with stale-response guard and Firestore error logging.
 - PR #12: Cleared shifts when the user is missing.
 - PR #13: Extracted staff fetching and initial staff bootstrap into `useStaffs`.
-- Current decision: create tracking docs and an updated plan before further `App.jsx` refactors.
+- Architecture cleanup follow-ups: extracted dashboard data, week navigation, auth state handling, and shift creation into focused utilities/hooks.
+- Documentation follow-up: added `docs/test-plan.md`.
+- Current session: added GitHub Actions CI for test, build, and lint.
 
 ## GAS Sync Work Summary
 
@@ -51,4 +53,4 @@ This log reconstructs the current project state from local git history and known
 
 ## Decision
 
-Before further code extraction, keep a written checkpoint so a future Codex session can resume safely from the actual repository state rather than the older original plan.
+With CI in place, the next recommended step is a final PR review and merge-readiness check using `docs/test-plan.md`.
