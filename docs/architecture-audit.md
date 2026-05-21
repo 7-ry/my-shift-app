@@ -187,7 +187,7 @@ Facts found in code:
   - Exports `buildGASPayload` for tests.
   - Preserves top-level payload keys: `weekId`, `weekLabel`, `scheduleCommands`, `dashboardRows`, `shiftDataRows`.
   - Preserves `mode: 'no-cors'`.
-  - Uses stable GAS-compatible over status `⚠️ OVER`.
+  - Uses stable GAS-compatible OVER status ⚠️ OVER.
 - `src/utils/helpers.js`
   - Time parsing and formatting.
   - Total hour calculation.
