@@ -2,32 +2,30 @@
 
 ## Safest Next Implementation Step
 
-Commit these progress documents first. After that, the safest code change is to extract the `dashboardData` calculation from `src/App.jsx` without changing its output shape or the `Dashboard` component API.
+After the CI workflow is added, the safest next step is a final PR review and merge-readiness check for `codex/architecture-cleanup`.
 
 ## Target Files
 
-Likely files for the next implementation PR:
+Likely files to inspect:
 
+- `.github/workflows/ci.yml`
+- `docs/test-plan.md`
 - `src/App.jsx`
-- New pure utility file, likely `src/utils/dashboardData.js`
-- Optional focused test file if the extracted calculation is made easy to test
+- `src/hooks`
+- `src/utils`
+- `src/services/gasService.js`
 
 ## Exact Constraints
 
-- Do not change UI design.
+- Do not change application behavior during merge-readiness review.
 - Do not change Firestore collection names or document shapes.
 - Do not change Google Apps Script payload shape.
-- Do not change `Dashboard` props in the first extraction.
-- Do not change staff order.
-- Do not change shift filtering by `staffName`.
-- Preserve current total hour rounding behavior.
-- Preserve current `remaining` calculation behavior.
-- Preserve current `progressPercent` calculation behavior.
-- Keep the first implementation as a straight extraction.
+- Do not run real production GAS sync without explicit approval.
+- Use `docs/test-plan.md` for manual regression coverage.
 
 ## Verification Commands
 
-Run after the next code change:
+Run before merge:
 
 ```bash
 npm test -- --run
@@ -35,20 +33,17 @@ npm run build
 npm run lint
 ```
 
-For this documentation-only step, verify that only docs changed:
-
-```bash
-git status --short
-```
-
 ## Manual Checks
 
-After extracting dashboard data, manually verify:
+Use `docs/test-plan.md`. Prioritize:
 
-- Dashboard staff cards still show the same current hours.
-- Remaining hours match the previous behavior.
-- Over-target staff still display correctly.
-- Staff order matches the staff list order.
-- Adding, editing, deleting, and dragging shifts updates dashboard totals.
+- Login/logout and read-only viewer mode.
+- Edit lock behavior.
+- Staff loading and staff management.
+- Shift creation, edit, delete, and drag.
+- Weekly navigation, jump to today, and reload behavior.
+- Dashboard totals.
+- Copy week and save shift template.
+- GAS sync entry point without real production sync.
 - Read-only viewer and edit lock behavior are unchanged.
 - Japanese/English switching still works.
