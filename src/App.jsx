@@ -19,7 +19,6 @@ import {
   calcTotalHours,
   formatTime12,
   getWeekDisplayVerbose,
-  getCurrentWeekId,
   getSheetRowNum,
   getSheetCellByRow,
 } from './utils/helpers.js';
@@ -35,6 +34,7 @@ import {
 } from './constants/config';
 import { useWeekShifts } from './hooks/useWeekShifts';
 import { useStaffs } from './hooks/useStaffs';
+import { useWeekNavigation } from './hooks/useWeekNavigation';
 
 function App() {
   const [lang, setLang] = useState(
@@ -48,9 +48,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingShift, setEditingShift] = useState(null);
-  const [weekId, setWeekId] = useState(
-    () => localStorage.getItem('lastViewedWeek') || getCurrentWeekId()
-  );
+  const { weekId, setWeekId, changeWeek, jumpToToday } = useWeekNavigation();
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const hasInitialized = useRef(false);
@@ -114,15 +112,6 @@ function App() {
     DRAG_THRESHOLD,
     isReadOnly: isReadOnly || isEditLocked,
   });
-
-  const changeWeek = (offset) => {
-    const [year, week] = weekId.split('-W').map(Number);
-    const date = new Date(year, 0, 1 + (week - 1) * 7);
-    date.setDate(date.getDate() + offset * 7);
-    setWeekId(getCurrentWeekId(date));
-  };
-
-  const jumpToToday = () => setWeekId(getCurrentWeekId());
 
   const handleSyncToGAS = async () => {
     if (isProcessing || isReadOnly) return; // 🌟 isReadOnly を追加
