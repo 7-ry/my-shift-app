@@ -231,6 +231,7 @@ Completed work, based on current code and docs:
 - Extracted shift creation into `useShiftCreation`.
 - Extracted shift template save into `useShiftTemplates`.
 - Extracted past-week copy into `useCopyWeek`.
+- Extracted Header clear-week write logic into `useClearWeek`.
 - Added `docs/test-plan.md`.
 - Added GitHub Actions CI for test, build, and lint.
 
@@ -238,7 +239,6 @@ Completed work, based on current code and docs:
 
 ### Required Before Main
 
-- Extract Header clear-week logic into a focused hook or helper while preserving Header props and clear-week behavior.
 - Extract CopyWeekModal template fetch/apply/delete logic into a focused hook or helper while preserving modal UI and template behavior.
 - Extract EditShiftModal save/delete write logic into a focused hook or helper while preserving edit/delete UI behavior.
 - Extract StaffManagementModal write logic into focused hooks/helpers in small batches while preserving staff order, inactive staff behavior, and the current staff-name/color cascade behavior.
@@ -299,12 +299,13 @@ This architecture-cleanup phase is done when:
 
 ## 11. Next Recommended PR
 
-Next PR should extract Header clear-week logic.
+Next PR should extract CopyWeekModal template fetch/apply/delete logic.
 
 Recommended scope:
 
-- Move the destructive clear-week Firestore write out of `Header` into a focused hook or helper.
-- Preserve current confirmation text, `writeBatch` behavior, `shifts` deletion behavior, `setShifts([])`, read-only hiding, and menu close behavior.
-- Keep Header props unchanged if possible.
+- Move template fetching, applying, and deleting out of `CopyWeekModal` into a focused hook or helper.
+- Preserve current modal UI, template list behavior, confirmation/alert behavior, Firestore collection names, and shift document shape.
+- Preserve existing past-week copy behavior through `useCopyWeek`.
+- Keep CopyWeekModal props unchanged if possible.
 - Run `npm test -- --run`, `npm run build`, and `npm run lint`.
-- Manually verify clear-week behavior on safe test data.
+- Manually verify template load, template apply, template delete, modal open/close, read-only visibility, and past-week copy behavior.

@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { doc, writeBatch } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useClearWeek } from '../hooks/useClearWeek';
 
 const Header = ({
   lang,
@@ -26,6 +25,12 @@ const Header = ({
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
+  const { handleClearWeek } = useClearWeek({
+    shifts,
+    setShifts,
+    t,
+    setShowMenu,
+  });
 
   // メニュー外クリックで閉じる処理をHeader内に移動してカプセル化
   useEffect(() => {
@@ -179,17 +184,7 @@ const Header = ({
                   </button>
                   <div className="h-px bg-slate-300 my-1"></div>
                   <button
-                    onClick={async () => {
-                      if (window.confirm(t.confirmClear)) {
-                        setShowMenu(false);
-                        const b = writeBatch(db);
-                        shifts.forEach((s) =>
-                          b.delete(doc(db, 'shifts', s.id))
-                        );
-                        await b.commit();
-                        setShifts([]);
-                      }
-                    }}
+                    onClick={handleClearWeek}
                     className="w-full text-left px-4 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 flex items-center gap-3"
                   >
                     🗑️ {t.clear}
