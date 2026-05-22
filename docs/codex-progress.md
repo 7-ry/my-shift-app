@@ -41,6 +41,7 @@ Last updated: 2026-05-21
 - Extracted EditShiftModal save/delete Firestore write logic into `src/hooks/useEditShiftActions.js`.
 - Extracted StaffManagementModal basic add/deactivate/reorder Firestore write logic into `src/hooks/useStaffManagementBasicActions.js`.
 - Extracted StaffManagementModal update and staff-name/color cascade Firestore write logic into `src/hooks/useStaffUpdateActions.js`.
+- Extracted GAS sync orchestration from `src/App.jsx` into `src/hooks/useGasSync.js`.
 - Added `docs/test-plan.md`.
 - Added `.github/workflows/ci.yml` for pull request and `codex/architecture-cleanup` checks.
 - Added `docs/architecture-audit.md` to reassess the actual current architecture and remaining merge plan.
@@ -48,16 +49,15 @@ Last updated: 2026-05-21
 ## Partially Completed Work
 
 - Firestore read logic has started moving out of `src/App.jsx`.
-- `src/App.jsx` still owns GAS sync orchestration.
 - Copy week modal UI state and rendering remain in `src/components/CopyWeekModal.jsx`.
 - StaffManagementModal UI state and rendering remain in `src/components/StaffManagementModal.jsx`.
 
 ## Pending Work
 
-- Complete the remaining required refactors before merging `codex/architecture-cleanup` into `main`.
-- Next PR: extract GAS sync orchestration from `src/App.jsx`.
-- Confirm CI and complete `docs/test-plan.md` manual regression after the required refactors.
-- Perform final PR review and merge-readiness check only after the required refactors are complete.
+- Required before-main refactors are complete.
+- Next step: final regression and merge-readiness review.
+- Confirm CI and complete `docs/test-plan.md` manual regression.
+- Perform final PR review before merging `codex/architecture-cleanup` into `main`.
 
 ## Verification History
 

@@ -26,6 +26,7 @@ This log reconstructs the current project state from local git history and known
 - EditShiftModal extraction: moved shift save/delete Firestore logic into `useEditShiftActions`.
 - StaffManagementModal basic actions extraction: moved staff add/deactivate/reorder Firestore logic into `useStaffManagementBasicActions`.
 - StaffManagementModal update/cascade extraction: moved staff update and staff-name/color cascade Firestore logic into `useStaffUpdateActions`.
+- GAS sync orchestration extraction: moved App-level sync orchestration into `useGasSync` while preserving `syncToGAS` and payload behavior.
 
 ## GAS Sync Work Summary
 
@@ -60,4 +61,4 @@ This log reconstructs the current project state from local git history and known
 
 ## Decision
 
-With StaffManagementModal update/cascade extraction complete, the next recommended step is GAS sync orchestration extraction from `App.jsx`. Final merge-readiness is deferred until the remaining required refactor and final regression are complete.
+With GAS sync orchestration extraction complete, the required before-main refactors are complete. The next recommended step is final regression and merge-readiness review before merging `codex/architecture-cleanup` into `main`.

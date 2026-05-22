@@ -33,8 +33,9 @@ Facts found in code:
 - Shared app state still lives in `App.jsx`, including staff list, selected staff, shifts, modal state, processing state, selected shift, and edit lock state.
 - Firestore read logic is partly extracted into hooks.
 - Several user actions with Firestore writes are now extracted into hooks.
-- Some Firestore write logic still lives inside UI components.
+- Business-sensitive Firestore write logic has been extracted into focused hooks.
 - GAS sync payload generation lives in `src/services/gasService.js`.
+- GAS sync orchestration now lives in `src/hooks/useGasSync.js`.
 - Pure calculations live in `src/utils`.
 - Constants and translations live in `src/constants/config.js`.
 - CI runs test, build, and lint with Node.js 22.
@@ -50,7 +51,7 @@ High-level flow:
 - Shift dragging uses `useShiftDrag`.
 - Template save uses `useShiftTemplates`.
 - Copying past weeks uses `useCopyWeek`.
-- GAS sync is orchestrated by `App.jsx` and executed by `syncToGAS`.
+- GAS sync is orchestrated by `useGasSync` and executed by `syncToGAS`.
 
 ## 4. Current App.jsx Responsibilities
 
@@ -79,12 +80,7 @@ Facts found in `src/App.jsx`:
   - `useShiftTemplates`.
 - Persists selected language to `localStorage`.
 - Owns logout confirmation and `signOut(auth)`.
-- Owns GAS sync orchestration:
-  - blocks read-only users,
-  - reads `VITE_GAS_URL`,
-  - confirms selected week,
-  - passes helpers to `syncToGAS`,
-  - shows success/error alerts.
+- Calls `useGasSync` and passes `handleSyncToGAS` to `Header`.
 - Builds `dashboardData` by calling `buildDashboardData(staffs, shifts)`.
 - Renders loading, login, and main app branches.
 - Wires props into `Header`, `Dashboard`, `ShiftTable`, `StaffDetailModal`, `StaffManagementModal`, `EditShiftModal`, and `CopyWeekModal`.
@@ -136,6 +132,12 @@ Facts found in `src/hooks`:
   - Fetches available source weeks.
   - Copies a selected source week into the current week.
   - Clears current week shifts before writing copied shifts.
+- `useGasSync`
+  - Blocks sync for read-only users and in-progress operations.
+  - Reads `VITE_GAS_URL`.
+  - Confirms the selected week before sync.
+  - Passes helpers to `syncToGAS`.
+  - Shows success/error alerts.
 
 Recommendation:
 
@@ -148,7 +150,7 @@ Facts found in `src/components`:
 
 - `Header`
   - Renders week controls, language switch, staff selector, edit lock, sync/menu buttons, logout.
-  - Still contains Firestore write logic for clearing the current week.
+  - Uses `useClearWeek` for clearing the current week.
 - `Dashboard`
   - Renders staff dashboard cards from `dashboardData`.
 - `ShiftTable`
@@ -169,17 +171,15 @@ Facts found in `src/components`:
   - Recalculates total hours on save.
 - `CopyWeekModal`
   - Renders copy/template UI.
-  - Still fetches templates.
-  - Still applies templates to the current week.
-  - Still deletes templates.
+  - Uses `useCopyWeekTemplates` for template fetch/apply/delete behavior.
   - Uses `useCopyWeek` for past-week copy.
 - `Login`
   - Contains passcode-to-Firebase-credential logic and signs in with Firebase Auth.
 
 Recommendation:
 
-- Component-embedded write logic should be documented as known remaining coupling.
-- The most risky embedded writes should be extracted before main so future feature work has clearer boundaries.
+- Treat the extracted hooks as the behavior boundaries for final regression.
+- Avoid further architecture changes before main unless final regression finds a blocking issue.
 
 ## 7. Services and Utils Responsibilities
 
@@ -238,6 +238,7 @@ Completed work, based on current code and docs:
 - Extracted EditShiftModal save/delete write logic into `useEditShiftActions`.
 - Extracted StaffManagementModal basic add/deactivate/reorder write logic into `useStaffManagementBasicActions`.
 - Extracted StaffManagementModal update and staff-name/color cascade logic into `useStaffUpdateActions`.
+- Extracted GAS sync orchestration from `App.jsx` into `useGasSync`.
 - Added `docs/test-plan.md`.
 - Added GitHub Actions CI for test, build, and lint.
 
@@ -245,7 +246,6 @@ Completed work, based on current code and docs:
 
 ### Required Before Main
 
-- Extract GAS sync orchestration from `App.jsx` into a focused hook or helper while preserving `syncToGAS` signature, `mode: 'no-cors'`, confirmation/alert behavior, and payload shape.
 - Confirm CI passes for the integration PR.
 - Run or confirm:
   - `npm test -- --run`
@@ -302,13 +302,13 @@ This architecture-cleanup phase is done when:
 
 ## 11. Next Recommended PR
 
-Next PR should extract GAS sync orchestration from `App.jsx`.
+Next step should be final regression and merge-readiness review.
 
 Recommended scope:
 
-- Move GAS sync orchestration out of `App.jsx` into a focused hook or helper.
-- Preserve `syncToGAS` signature, `mode: 'no-cors'`, confirmation/alert behavior, and payload shape.
-- Preserve read-only blocking and missing `VITE_GAS_URL` behavior.
-- Keep App/Header props unchanged if possible.
+- Confirm all required before-main refactors are complete.
+- Run or confirm CI and local automated checks.
+- Complete the manual regression checklist in `docs/test-plan.md`.
+- Review final diff for Firestore collection names, document shapes, GAS payload shape, read-only behavior, edit lock, drag behavior, and language switching.
 - Run `npm test -- --run`, `npm run build`, and `npm run lint`.
-- Manually verify sync entry point, read-only blocking, missing GAS URL alert, selected week confirmation, and no real production GAS sync unless explicitly approved.
+- Do not run real production GAS sync unless explicitly approved.

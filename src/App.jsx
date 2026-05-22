@@ -10,7 +10,6 @@ import StaffDetailModal from './components/StaffDetailModal';
 import EditShiftModal from './components/EditShiftModal';
 import StaffManagementModal from './components/StaffManagementModal';
 import Login from './components/Login'; // 追加
-import { syncToGAS } from './services/gasService';
 import CopyWeekModal from './components/CopyWeekModal';
 import {
   timeToMins,
@@ -18,8 +17,6 @@ import {
   calcTotalHours,
   formatTime12,
   getWeekDisplayVerbose,
-  getSheetRowNum,
-  getSheetCellByRow,
 } from './utils/helpers.js';
 import { buildDashboardData } from './utils/dashboardData';
 import { useShiftDrag } from './hooks/useShiftDrag';
@@ -37,6 +34,7 @@ import { useWeekNavigation } from './hooks/useWeekNavigation';
 import { useAuthUser } from './hooks/useAuthUser';
 import { useShiftCreation } from './hooks/useShiftCreation';
 import { useShiftTemplates } from './hooks/useShiftTemplates';
+import { useGasSync } from './hooks/useGasSync';
 
 function App() {
   const [lang, setLang] = useState(
@@ -98,47 +96,16 @@ function App() {
     isReadOnly: isReadOnly || isEditLocked,
   });
 
-  const handleSyncToGAS = async () => {
-    if (isProcessing || isReadOnly) return; // 🌟 isReadOnly を追加
-    const gasUrl = import.meta.env.VITE_GAS_URL;
-    if (!gasUrl) {
-      alert('.env Error: VITE_GAS_URL');
-      return;
-    }
-
-    if (
-      !window.confirm(`${t.confirmSync} ${getWeekDisplayVerbose(weekId, lang)}`)
-    )
-      return;
-
-    setIsProcessing(true);
-
-    try {
-      // 外部化したサービスを呼び出す
-      await syncToGAS({
-        gasUrl,
-        shifts,
-        staffs,
-        weekId,
-        lang,
-        t,
-        helpers: {
-          timeToMins,
-          getSheetRowNum,
-          formatTime12,
-          getWeekDisplayVerbose,
-          getSheetCellByRow: (day, row, lane) =>
-            getSheetCellByRow(day, row, lane, DAYS), // ★ DAYSを追加
-        },
-      });
-      alert(t.syncSuccess);
-    } catch (error) {
-      console.error(error);
-      alert(t.syncError);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  const { handleSyncToGAS } = useGasSync({
+    isProcessing,
+    isReadOnly,
+    shifts,
+    staffs,
+    weekId,
+    lang,
+    t,
+    setIsProcessing,
+  });
 
   const { handleAddShift } = useShiftCreation({
     isProcessing,
