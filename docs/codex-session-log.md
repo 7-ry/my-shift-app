@@ -22,6 +22,7 @@ This log reconstructs the current project state from local git history and known
 - Architecture reassessment: added `docs/architecture-audit.md` and reclassified remaining work before main.
 - Owner decision: defer main merge and complete remaining necessary refactors before final regression.
 - Header clear-week extraction: moved the destructive current-week clear write from `Header` into `useClearWeek`.
+- CopyWeekModal template extraction: moved template fetch/apply/delete Firestore logic into `useCopyWeekTemplates`.
 
 ## GAS Sync Work Summary
 
@@ -56,4 +57,4 @@ This log reconstructs the current project state from local git history and known
 
 ## Decision
 
-With Header clear-week extraction complete, the next recommended step is CopyWeekModal template fetch/apply/delete extraction. Final merge-readiness is deferred until the remaining required refactors and final regression are complete.
+With CopyWeekModal template extraction complete, the next recommended step is EditShiftModal save/delete extraction. Final merge-readiness is deferred until the remaining required refactors and final regression are complete.

@@ -232,6 +232,7 @@ Completed work, based on current code and docs:
 - Extracted shift template save into `useShiftTemplates`.
 - Extracted past-week copy into `useCopyWeek`.
 - Extracted Header clear-week write logic into `useClearWeek`.
+- Extracted CopyWeekModal template fetch/apply/delete logic into `useCopyWeekTemplates`.
 - Added `docs/test-plan.md`.
 - Added GitHub Actions CI for test, build, and lint.
 
@@ -239,7 +240,6 @@ Completed work, based on current code and docs:
 
 ### Required Before Main
 
-- Extract CopyWeekModal template fetch/apply/delete logic into a focused hook or helper while preserving modal UI and template behavior.
 - Extract EditShiftModal save/delete write logic into a focused hook or helper while preserving edit/delete UI behavior.
 - Extract StaffManagementModal write logic into focused hooks/helpers in small batches while preserving staff order, inactive staff behavior, and the current staff-name/color cascade behavior.
 - Extract GAS sync orchestration from `App.jsx` into a focused hook or helper while preserving `syncToGAS` signature, `mode: 'no-cors'`, confirmation/alert behavior, and payload shape.
@@ -299,13 +299,13 @@ This architecture-cleanup phase is done when:
 
 ## 11. Next Recommended PR
 
-Next PR should extract CopyWeekModal template fetch/apply/delete logic.
+Next PR should extract EditShiftModal save/delete logic.
 
 Recommended scope:
 
-- Move template fetching, applying, and deleting out of `CopyWeekModal` into a focused hook or helper.
-- Preserve current modal UI, template list behavior, confirmation/alert behavior, Firestore collection names, and shift document shape.
-- Preserve existing past-week copy behavior through `useCopyWeek`.
-- Keep CopyWeekModal props unchanged if possible.
+- Move shift save/delete Firestore writes out of `EditShiftModal` into a focused hook or helper.
+- Preserve current edit modal UI, save/delete behavior, confirmation/alert behavior, Firestore collection names, and shift document shape.
+- Preserve total-hours recalculation and local `setShifts` updates.
+- Keep EditShiftModal props unchanged if possible.
 - Run `npm test -- --run`, `npm run build`, and `npm run lint`.
-- Manually verify template load, template apply, template delete, modal open/close, read-only visibility, and past-week copy behavior.
+- Manually verify edit modal open/close, shift save, shift delete, total-hours recalculation, local dashboard/schedule updates, and read-only behavior.
