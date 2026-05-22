@@ -2,29 +2,29 @@
 
 ## Safest Next Implementation Step
 
-After StaffManagementModal update/cascade extraction, do not proceed to final main merge yet. The safest next PR is GAS sync orchestration extraction from `App.jsx`, because sync is production-sensitive and should stay payload-preserving.
+After GAS sync orchestration extraction, the required before-main refactors are complete. The safest next step is final regression and merge-readiness review before any merge to `main`.
 
 ## Target Files
 
 Likely files to inspect:
 
-- `src/App.jsx`
-- `src/hooks`
-- `src/services/gasService.js`
+- `docs/test-plan.md`
+- `docs/architecture-audit.md`
+- GitHub Actions checks for `codex/architecture-cleanup`
+- Final PR diff
 
 ## Exact Constraints
 
 - Do not change rendered UI.
 - Do not change Firestore collection names or document shapes.
 - Do not change Google Apps Script payload shape.
-- Preserve `syncToGAS` signature and `mode: 'no-cors'`.
-- Preserve sync confirmation, success/error alerts, read-only blocking, and missing `VITE_GAS_URL` alert.
-- Preserve read-only behavior and edit-lock semantics.
-- Do not change drag, week navigation, auth, Header clear-week, copy week, template behavior, EditShiftModal behavior, or StaffManagementModal behavior.
+- Do not perform new refactors during final review unless a blocking issue is found.
+- Preserve read-only behavior, edit-lock semantics, drag behavior, weekly navigation, copy week, template behavior, staff management, and GAS sync entry point.
+- Do not run real production GAS sync unless explicitly approved.
 
 ## Verification Commands
 
-Run after the next refactor:
+Run or confirm before merge-readiness:
 
 ```bash
 npm test -- --run
@@ -34,14 +34,18 @@ npm run lint
 
 ## Manual Checks
 
-For the GAS sync orchestration PR, manually verify:
+For final regression, manually verify:
 
-- Sync button remains unavailable or blocked for read-only users.
-- Missing `VITE_GAS_URL` still shows the existing `.env Error: VITE_GAS_URL` alert.
-- Editor sync still asks for confirmation with the selected week label.
-- Success and error alerts remain unchanged.
+- Login/logout.
+- Read-only viewer restrictions.
+- Edit lock restrictions.
+- Staff management add/edit/deactivate/reorder.
+- Shift create/edit/delete/drag.
+- Weekly navigation and jump to today.
+- Copy week and template save/apply/delete.
+- GAS sync entry point, including read-only blocking and missing `VITE_GAS_URL`.
 - Do not run real production GAS sync unless explicitly approved.
 
 ## Recommendation
 
-Implement GAS sync orchestration extraction next, then continue the remaining required refactor roadmap in `docs/architecture-audit.md`. Defer main merge until final regression is complete.
+Complete final regression and merge-readiness review next. Defer `main` merge until the project owner accepts the final automated and manual regression results.

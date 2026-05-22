@@ -23,27 +23,28 @@ This plan replaces the earlier ordering with the actual current repository state
 - EditShiftModal save/delete hook extraction.
 - StaffManagementModal basic add/deactivate/reorder hook extraction.
 - StaffManagementModal update and staff-name/color cascade hook extraction.
+- GAS sync orchestration hook extraction.
 - Test plan documentation in `docs/test-plan.md`.
 - CI workflow for pull requests and pushes to `codex/architecture-cleanup`.
 - Architecture audit documentation in `docs/architecture-audit.md`.
 
 ## Current Phase
 
-- Complete remaining required refactors before merging `codex/architecture-cleanup` into `main`.
+- Final regression and merge-readiness review before merging `codex/architecture-cleanup` into `main`.
 
 ## Next Safe Order
 
-1. Extract GAS sync orchestration from `App.jsx`.
-2. Consider a small Firestore service layer only if it reduces duplication without changing behavior.
-3. Confirm CI and local checks.
-4. Use `docs/test-plan.md` for manual regression coverage.
-5. Run final PR review and merge-readiness check.
+1. Confirm CI and local checks.
+2. Use `docs/test-plan.md` for manual regression coverage.
+3. Run final PR review and merge-readiness check.
+4. Merge `codex/architecture-cleanup` into `main` only after project owner approval.
 
 ## Later Phases
 
 - Add focused tests for extracted pure calculations where the test setup stays lightweight.
 - Consider manual browser regression with a safe non-production Firebase/GAS setup when available.
 - Continue reducing prop drilling in `App.jsx` if maintenance pressure justifies it.
+- Consider a small Firestore service layer only if it reduces duplication without changing behavior.
 
 ## Deferred Decisions
 
