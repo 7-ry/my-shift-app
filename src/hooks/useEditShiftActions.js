@@ -9,6 +9,7 @@ export const useEditShiftActions = ({
   isProcessing,
   setIsProcessing,
   t,
+  isReadOnly,
 }) => {
   const onSave = async (e) => {
     if (e) e.preventDefault();
