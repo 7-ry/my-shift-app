@@ -23,6 +23,7 @@ export const useStaffUpdateActions = ({
     setIsProcessing(true);
     try {
       const oldStaff = staffs.find((s) => s.id === staffId);
+      if (!oldStaff) throw new Error(`Staff with ID ${staffId} not found.`);
       await updateDoc(doc(db, 'staffs', staffId), staffEditData);
       if (
         oldStaff.name !== staffEditData.name ||
