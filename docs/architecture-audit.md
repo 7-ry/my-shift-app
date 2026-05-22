@@ -163,7 +163,8 @@ Facts found in `src/components`:
   - Cascades staff name/color updates into matching shift documents.
   - This is business-sensitive because it affects historical/past shifts if those are included in the query.
 - `EditShiftModal`
-  - Contains shift update and delete Firestore writes.
+  - Renders shift edit/delete UI.
+  - Uses `useEditShiftActions` for shift update and delete Firestore writes.
   - Recalculates total hours on save.
 - `CopyWeekModal`
   - Renders copy/template UI.
@@ -233,6 +234,7 @@ Completed work, based on current code and docs:
 - Extracted past-week copy into `useCopyWeek`.
 - Extracted Header clear-week write logic into `useClearWeek`.
 - Extracted CopyWeekModal template fetch/apply/delete logic into `useCopyWeekTemplates`.
+- Extracted EditShiftModal save/delete write logic into `useEditShiftActions`.
 - Added `docs/test-plan.md`.
 - Added GitHub Actions CI for test, build, and lint.
 
@@ -240,7 +242,6 @@ Completed work, based on current code and docs:
 
 ### Required Before Main
 
-- Extract EditShiftModal save/delete write logic into a focused hook or helper while preserving edit/delete UI behavior.
 - Extract StaffManagementModal write logic into focused hooks/helpers in small batches while preserving staff order, inactive staff behavior, and the current staff-name/color cascade behavior.
 - Extract GAS sync orchestration from `App.jsx` into a focused hook or helper while preserving `syncToGAS` signature, `mode: 'no-cors'`, confirmation/alert behavior, and payload shape.
 - Confirm CI passes for the integration PR.
@@ -299,13 +300,13 @@ This architecture-cleanup phase is done when:
 
 ## 11. Next Recommended PR
 
-Next PR should extract EditShiftModal save/delete logic.
+Next PR should extract StaffManagementModal write logic in small safe batches.
 
 Recommended scope:
 
-- Move shift save/delete Firestore writes out of `EditShiftModal` into a focused hook or helper.
-- Preserve current edit modal UI, save/delete behavior, confirmation/alert behavior, Firestore collection names, and shift document shape.
-- Preserve total-hours recalculation and local `setShifts` updates.
-- Keep EditShiftModal props unchanged if possible.
+- Move StaffManagementModal Firestore writes into focused hooks or helpers in small batches.
+- Preserve staff add, deactivate, reorder, update, inactive staff behavior, Firestore collection names, and document shapes.
+- Preserve current staff name/color cascade behavior into matching shift documents.
+- Keep StaffManagementModal props unchanged if possible.
 - Run `npm test -- --run`, `npm run build`, and `npm run lint`.
-- Manually verify edit modal open/close, shift save, shift delete, total-hours recalculation, local dashboard/schedule updates, and read-only behavior.
+- Manually verify staff add, edit, deactivate, reorder, staff-name/color cascade behavior, local staff/shift updates, and read-only restrictions.

@@ -38,6 +38,7 @@ Last updated: 2026-05-21
 - Extracted copy week logic into `src/hooks/useCopyWeek.js`.
 - Extracted Header clear-week Firestore write logic into `src/hooks/useClearWeek.js`.
 - Extracted CopyWeekModal template fetch/apply/delete logic into `src/hooks/useCopyWeekTemplates.js`.
+- Extracted EditShiftModal save/delete Firestore write logic into `src/hooks/useEditShiftActions.js`.
 - Added `docs/test-plan.md`.
 - Added `.github/workflows/ci.yml` for pull request and `codex/architecture-cleanup` checks.
 - Added `docs/architecture-audit.md` to reassess the actual current architecture and remaining merge plan.
@@ -47,13 +48,13 @@ Last updated: 2026-05-21
 - Firestore read logic has started moving out of `src/App.jsx`.
 - `src/App.jsx` still owns GAS sync orchestration.
 - Copy week modal UI state and rendering remain in `src/components/CopyWeekModal.jsx`.
-- Some Firestore write behavior remains in components, including StaffManagementModal and EditShiftModal.
+- Some Firestore write behavior remains in components, including StaffManagementModal.
 
 ## Pending Work
 
 - Complete the remaining required refactors before merging `codex/architecture-cleanup` into `main`.
-- Next PR: extract EditShiftModal save/delete logic.
-- Later required refactors: StaffManagementModal writes and GAS sync orchestration.
+- Next PR: extract StaffManagementModal write logic in small safe batches.
+- Later required refactors: GAS sync orchestration.
 - Confirm CI and complete `docs/test-plan.md` manual regression after the required refactors.
 - Perform final PR review and merge-readiness check only after the required refactors are complete.
 
