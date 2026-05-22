@@ -159,7 +159,9 @@ Facts found in `src/components`:
   - Renders one staff member's weekly shift details.
   - Sorts and filters shifts for display.
 - `StaffManagementModal`
-  - Contains staff add, deactivate, reorder, and update logic.
+  - Renders staff add, deactivate, reorder, and update UI.
+  - Uses `useStaffManagementBasicActions` for staff add, deactivate, and reorder Firestore writes.
+  - Still contains staff update logic.
   - Cascades staff name/color updates into matching shift documents.
   - This is business-sensitive because it affects historical/past shifts if those are included in the query.
 - `EditShiftModal`
@@ -235,6 +237,7 @@ Completed work, based on current code and docs:
 - Extracted Header clear-week write logic into `useClearWeek`.
 - Extracted CopyWeekModal template fetch/apply/delete logic into `useCopyWeekTemplates`.
 - Extracted EditShiftModal save/delete write logic into `useEditShiftActions`.
+- Extracted StaffManagementModal basic add/deactivate/reorder write logic into `useStaffManagementBasicActions`.
 - Added `docs/test-plan.md`.
 - Added GitHub Actions CI for test, build, and lint.
 
@@ -242,7 +245,7 @@ Completed work, based on current code and docs:
 
 ### Required Before Main
 
-- Extract StaffManagementModal write logic into focused hooks/helpers in small batches while preserving staff order, inactive staff behavior, and the current staff-name/color cascade behavior.
+- Extract StaffManagementModal update and staff-name/color cascade logic into focused hooks/helpers while preserving current behavior.
 - Extract GAS sync orchestration from `App.jsx` into a focused hook or helper while preserving `syncToGAS` signature, `mode: 'no-cors'`, confirmation/alert behavior, and payload shape.
 - Confirm CI passes for the integration PR.
 - Run or confirm:
@@ -300,13 +303,13 @@ This architecture-cleanup phase is done when:
 
 ## 11. Next Recommended PR
 
-Next PR should extract StaffManagementModal write logic in small safe batches.
+Next PR should extract StaffManagementModal update and staff-name/color cascade logic.
 
 Recommended scope:
 
-- Move StaffManagementModal Firestore writes into focused hooks or helpers in small batches.
-- Preserve staff add, deactivate, reorder, update, inactive staff behavior, Firestore collection names, and document shapes.
-- Preserve current staff name/color cascade behavior into matching shift documents.
+- Move StaffManagementModal update and staff-name/color cascade Firestore writes into a focused hook or helper.
+- Preserve staff update behavior, inactive staff behavior, Firestore collection names, and document shapes.
+- Preserve current staff name/color cascade behavior into matching shift documents, including the current query scope.
 - Keep StaffManagementModal props unchanged if possible.
 - Run `npm test -- --run`, `npm run build`, and `npm run lint`.
-- Manually verify staff add, edit, deactivate, reorder, staff-name/color cascade behavior, local staff/shift updates, and read-only restrictions.
+- Manually verify staff edit, staff-name/color cascade behavior, local staff/shift updates, and that add/deactivate/reorder still work after the basic-action extraction.
