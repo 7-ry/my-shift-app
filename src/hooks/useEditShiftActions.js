@@ -38,7 +38,7 @@ export const useEditShiftActions = ({
   };
 
   const onDelete = async () => {
-    if (isProcessing) return;
+    if (isProcessing || !editingShift || isReadOnly) return;
     if (!window.confirm(t.confirmDelete)) return;
     setIsProcessing(true);
     try {
