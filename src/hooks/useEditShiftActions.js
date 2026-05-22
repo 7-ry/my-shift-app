@@ -12,7 +12,7 @@ export const useEditShiftActions = ({
 }) => {
   const onSave = async (e) => {
     if (e) e.preventDefault();
-    if (isProcessing) return;
+    if (isProcessing || !editingShift || isReadOnly) return;
     setIsProcessing(true);
     try {
       const total = calcTotalHours(
