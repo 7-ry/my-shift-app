@@ -26,8 +26,11 @@ export const useStaffManagementBasicActions = ({
         ...newStaff,
         order: newOrder,
       });
-      setStaffs([...staffs, { id: docRef.id, ...newStaff, order: newOrder }]);
-      setNewStaff({ name: '', color: '#cbd5e1', target: 24 });
+      setStaffs((prev) => [
+        ...prev,
+        { id: docRef.id, ...newStaff, order: newOrder },
+      ]);
+      setNewStaff({ name: '', color: '#cbd5e1', target: 24, offDays: [] });
     } catch (e) {
       console.error(e);
     }
@@ -35,13 +38,14 @@ export const useStaffManagementBasicActions = ({
   };
 
   const handleDeleteStaff = async (id) => {
+    if (isProcessing) return;
     if (!window.confirm(t.confirmStaffDelete)) return;
     setIsProcessing(true);
     try {
       await updateDoc(doc(db, 'staffs', id), {
         isActive: false,
       });
-      setStaffs(staffs.filter((s) => s.id !== id));
+      setStaffs((prev) => prev.filter((s) => s.id !== id));
     } catch (e) {
       console.error(e);
     }
