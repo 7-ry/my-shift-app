@@ -1,16 +1,14 @@
 # Codex Progress
 
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 ## Repository State
 
-- Current branch at inspection: `codex/extract-template-logic`
-- Working tree before this CI update: clean except existing untracked `.tmp.driveupload/`
-- Latest known HEAD: `406e999` `Merge pull request #13 from 7-ry/codex/plan-staffs-read-hook`
-- Existing docs before this update: `docs/gas-sync-spec.md`
-- Existing hooks: `useShiftDrag.js`, `useStaffs.js`, `useWeekShifts.js`
-- Package scripts: `dev`, `build`, `lint`, `preview`, `test`
-- Test script: `vitest`
+- Architecture cleanup was merged into `main` through PR #34.
+- Production smoke check did not reveal a blocking issue.
+- `codex/architecture-cleanup` is being kept temporarily as a safety reference.
+- New post-main work should branch from `main`.
+- Current planning branch: `codex/post-main-roadmap-docs`.
 
 ## Completed Work
 
@@ -19,13 +17,9 @@ Last updated: 2026-05-21
 - Documented current GAS sync behavior in `docs/gas-sync-spec.md`.
 - Extracted `buildGASPayload` in `src/services/gasService.js`.
 - Added GAS payload contract tests in `src/services/gasService.test.js`.
-- Split GAS payload building into internal builders:
-  - `buildShiftDataRows`
-  - `buildDashboardRows`
-  - `buildScheduleCommands`
+- Split GAS payload building into internal builders.
 - Fixed the dashboard OVER status contract so GAS receives `⚠️ OVER`.
 - Optimized dashboard row total calculation with a `Map`.
-- Added `GAS_STATUS_OVER` cleanup and JSDoc clarification.
 - Extracted week shift reads into `src/hooks/useWeekShifts.js`.
 - Hardened `useWeekShifts` with stale-response protection and Firestore error logging.
 - Cleared shifts when `user` is missing in `useWeekShifts`.
@@ -43,21 +37,22 @@ Last updated: 2026-05-21
 - Extracted StaffManagementModal update and staff-name/color cascade Firestore write logic into `src/hooks/useStaffUpdateActions.js`.
 - Extracted GAS sync orchestration from `src/App.jsx` into `src/hooks/useGasSync.js`.
 - Added `docs/test-plan.md`.
-- Added `.github/workflows/ci.yml` for pull request and `codex/architecture-cleanup` checks.
-- Added `docs/architecture-audit.md` to reassess the actual current architecture and remaining merge plan.
-
-## Partially Completed Work
-
-- Firestore read logic has started moving out of `src/App.jsx`.
-- Copy week modal UI state and rendering remain in `src/components/CopyWeekModal.jsx`.
-- StaffManagementModal UI state and rendering remain in `src/components/StaffManagementModal.jsx`.
+- Added `.github/workflows/ci.yml`.
+- Added `docs/architecture-audit.md`.
+- Added `docs/post-main-roadmap.md` to define the next post-main sequence.
 
 ## Pending Work
 
-- Required before-main refactors are complete.
-- Next step: final regression and merge-readiness review.
-- Confirm CI and complete `docs/test-plan.md` manual regression.
-- Perform final PR review before merging `codex/architecture-cleanup` into `main`.
+Follow `docs/post-main-roadmap.md`.
+
+Recommended order:
+
+1. Staff update failure user-facing alert.
+2. Staff cascade batch limit guard design.
+3. Non-production GAS sync verification environment.
+4. Manuscript / new feature updates.
+5. Optional project re-audit.
+6. Keep drag behavior deferred unless a concrete bug appears.
 
 ## Verification History
 
@@ -69,16 +64,14 @@ npm run build
 npm run lint
 ```
 
-The latest staff hook extraction passed all three commands. Build has consistently shown only the existing Vite chunk size warning.
-
-The architecture cleanup follow-ups also passed these commands locally after each implementation step. The CI workflow now runs the same commands on pull requests and pushes to `codex/architecture-cleanup`.
+Build has consistently shown only the existing Vite chunk size warning.
 
 ## Risk Notes
 
-- This is a production-used scheduling app. Refactors must remain small and reviewable.
+- This is a production-used scheduling app. PRs must remain small and reviewable.
 - Do not change Firestore collection names: `staffs`, `shifts`, `shiftTemplates`.
 - Do not change Google Apps Script payload shape.
 - Preserve read-only viewer behavior, edit lock behavior, drag behavior, and Japanese/English switching.
 - Initial staff auto-create behavior is business-sensitive and currently lives in `useStaffs`.
 - GAS sync uses `mode: 'no-cors'`, so frontend success does not confirm receiver-side success.
-- The project owner decided main merge is deferred until remaining necessary refactors reduce risky embedded write logic.
+- Staff update cascade still needs a separate batch-limit safety design.
