@@ -61,7 +61,7 @@ export const useCopyWeekTemplates = ({
       currentSnap.forEach((d) => batch.delete(d.ref));
 
       // 2. テンプレートのデータを現在の週として投入
-      const newShifts = templateShifts.map((s) => {
+      const newShifts = (templateShifts || []).map((s) => {
         const newDocRef = doc(collection(db, 'shifts'));
         const data = { ...s, weekId: weekId };
         batch.set(newDocRef, data);
