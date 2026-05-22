@@ -24,6 +24,7 @@ This log reconstructs the current project state from local git history and known
 - Header clear-week extraction: moved the destructive current-week clear write from `Header` into `useClearWeek`.
 - CopyWeekModal template extraction: moved template fetch/apply/delete Firestore logic into `useCopyWeekTemplates`.
 - EditShiftModal extraction: moved shift save/delete Firestore logic into `useEditShiftActions`.
+- StaffManagementModal basic actions extraction: moved staff add/deactivate/reorder Firestore logic into `useStaffManagementBasicActions`.
 
 ## GAS Sync Work Summary
 
@@ -58,4 +59,4 @@ This log reconstructs the current project state from local git history and known
 
 ## Decision
 
-With EditShiftModal save/delete extraction complete, the next recommended step is StaffManagementModal write logic extraction in small safe batches. Final merge-readiness is deferred until the remaining required refactors and final regression are complete.
+With StaffManagementModal basic actions extracted, the next recommended step is StaffManagementModal update and staff-name/color cascade extraction. Final merge-readiness is deferred until the remaining required refactors and final regression are complete.
