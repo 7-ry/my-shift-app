@@ -19,6 +19,7 @@ const EditShiftModal = ({
     isProcessing,
     setIsProcessing,
     t,
+    isReadOnly,
   });
 
   if (!editingShift) return null;
