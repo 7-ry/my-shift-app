@@ -51,7 +51,6 @@ High-level flow:
 - Shift dragging uses `useShiftDrag`.
 - Template save uses `useShiftTemplates`.
 - Copying past weeks uses `useCopyWeek`.
-- GAS sync is orchestrated by `App.jsx` and executed by `syncToGAS`.
 - GAS sync is orchestrated by `useGasSync` and executed by `syncToGAS`.
 
 ## 4. Current App.jsx Responsibilities
