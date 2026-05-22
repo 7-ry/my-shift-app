@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, auth } from './firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './firebase';
+import { signOut } from 'firebase/auth';
 
 // components import
 import Header from './components/Header';
@@ -11,7 +10,6 @@ import StaffDetailModal from './components/StaffDetailModal';
 import EditShiftModal from './components/EditShiftModal';
 import StaffManagementModal from './components/StaffManagementModal';
 import Login from './components/Login'; // 追加
-import { syncToGAS } from './services/gasService';
 import CopyWeekModal from './components/CopyWeekModal';
 import {
   timeToMins,
@@ -19,10 +17,8 @@ import {
   calcTotalHours,
   formatTime12,
   getWeekDisplayVerbose,
-  getCurrentWeekId,
-  getSheetRowNum,
-  getSheetCellByRow,
 } from './utils/helpers.js';
+import { buildDashboardData } from './utils/dashboardData';
 import { useShiftDrag } from './hooks/useShiftDrag';
 import {
   translations,
@@ -34,6 +30,11 @@ import {
 } from './constants/config';
 import { useWeekShifts } from './hooks/useWeekShifts';
 import { useStaffs } from './hooks/useStaffs';
+import { useWeekNavigation } from './hooks/useWeekNavigation';
+import { useAuthUser } from './hooks/useAuthUser';
+import { useShiftCreation } from './hooks/useShiftCreation';
+import { useShiftTemplates } from './hooks/useShiftTemplates';
+import { useGasSync } from './hooks/useGasSync';
 
 function App() {
   const [lang, setLang] = useState(
@@ -44,12 +45,9 @@ function App() {
   const [staffs, setStaffs] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [shifts, setShifts] = useState([]);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, isReadOnly } = useAuthUser();
   const [editingShift, setEditingShift] = useState(null);
-  const [weekId, setWeekId] = useState(
-    () => localStorage.getItem('lastViewedWeek') || getCurrentWeekId()
-  );
+  const { weekId, setWeekId, changeWeek, jumpToToday } = useWeekNavigation();
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const hasInitialized = useRef(false);
@@ -57,23 +55,7 @@ function App() {
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [loginPw, setLoginPw] = useState('');
   const [selectedShiftId, setSelectedShiftId] = useState(null);
-  const [isReadOnly, setIsReadOnly] = useState(false);
   const [isEditLocked, setIsEditLocked] = useState(true);
-
-  // 認証状態の監視（ブラウザを閉じてもログインを維持するための処理）
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        setUser(u);
-        setIsReadOnly(u.email === import.meta.env.VITE_FB_VIEWER_EMAIL);
-      } else {
-        setUser(null);
-        setIsReadOnly(false);
-      }
-      setLoading(false); //
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleLogout = async () => {
     if (window.confirm(t.logoutConfirm)) {
@@ -114,155 +96,43 @@ function App() {
     isReadOnly: isReadOnly || isEditLocked,
   });
 
-  const changeWeek = (offset) => {
-    const [year, week] = weekId.split('-W').map(Number);
-    const date = new Date(year, 0, 1 + (week - 1) * 7);
-    date.setDate(date.getDate() + offset * 7);
-    setWeekId(getCurrentWeekId(date));
-  };
-
-  const jumpToToday = () => setWeekId(getCurrentWeekId());
-
-  const handleSyncToGAS = async () => {
-    if (isProcessing || isReadOnly) return; // 🌟 isReadOnly を追加
-    const gasUrl = import.meta.env.VITE_GAS_URL;
-    if (!gasUrl) {
-      alert('.env Error: VITE_GAS_URL');
-      return;
-    }
-
-    if (
-      !window.confirm(`${t.confirmSync} ${getWeekDisplayVerbose(weekId, lang)}`)
-    )
-      return;
-
-    setIsProcessing(true);
-
-    try {
-      // 外部化したサービスを呼び出す
-      await syncToGAS({
-        gasUrl,
-        shifts,
-        staffs,
-        weekId,
-        lang,
-        t,
-        helpers: {
-          timeToMins,
-          getSheetRowNum,
-          formatTime12,
-          getWeekDisplayVerbose,
-          getSheetCellByRow: (day, row, lane) =>
-            getSheetCellByRow(day, row, lane, DAYS), // ★ DAYSを追加
-        },
-      });
-      alert(t.syncSuccess);
-    } catch (error) {
-      console.error(error);
-      alert(t.syncError);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleAddShift = async (day, time, lane) => {
-    if (isProcessing || !selectedStaff || isReadOnly || isEditLocked) return; // 🌟 isReadOnly を追加
-    setIsProcessing(true);
-    const staffInfo = staffs.find((s) => s.name === selectedStaff);
-    const dayIndexMap = {
-      SUN: 0,
-      MON: 1,
-      TUE: 2,
-      WED: 3,
-      THU: 4,
-      FRI: 5,
-      SAT: 6,
-    };
-    const dayIndex = dayIndexMap[day];
-    if (staffInfo?.offDays?.includes(dayIndex)) {
-      const msg = t.offDayWarning
-        .replace('{name}', selectedStaff)
-        .replace('{day}', day);
-      if (!window.confirm(msg)) {
-        setIsProcessing(false); // 🌟 処理中フラグを戻すのを忘れずに
-        return;
-      }
-    }
-    const startMins = timeToMins(time);
-    const endStr = minsToTime(Math.min(startMins + 120, timeToMins('23:30')));
-    const total = calcTotalHours(time, endStr, 0, 15); // 🌟 第4引数に 15
-    const newShift = {
-      staffName: selectedStaff,
-      day,
-      startTime: time,
-      endTime: endStr,
-      extendedEndTime: '',
-      lane,
-      breakHours: 0,
-      totalHours: total,
-      color: staffInfo.color,
-      weekId,
-    };
-    try {
-      const docRef = await addDoc(collection(db, 'shifts'), newShift);
-      setShifts((prev) => [...prev, { id: docRef.id, ...newShift }]);
-    } catch (e) {
-      console.error(e);
-    }
-    setIsProcessing(false);
-  };
-
-  const handleSaveAsTemplate = async (templateName) => {
-    if (isProcessing || isReadOnly || !templateName || shifts.length === 0)
-      return;
-    setIsProcessing(true);
-    try {
-      // 🌟 保存用にデータをクリーンアップ（個別のIDやweekIdを除去）
-      const templateShifts = shifts.map((shift) => {
-        const rest = { ...shift };
-        delete rest.id;
-        delete rest.weekId;
-        delete rest.totalHours;
-        return {
-          ...rest,
-          totalHours: calcTotalHours(
-            rest.startTime,
-            rest.endTime,
-            rest.breakHours,
-            0
-          ),
-        };
-      });
-
-      await addDoc(collection(db, 'shiftTemplates'), {
-        name: templateName,
-        shifts: templateShifts,
-        createdAt: new Date(),
-        createdBy: user.email,
-        staffCount: [...new Set(shifts.map((s) => s.staffName))].length,
-      });
-
-      alert(t.templateSaveSuccess.replace('{name}', templateName));
-    } catch (e) {
-      console.error(e);
-      alert(t.templateSaveError);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const dashboardData = staffs.map((staff) => {
-    const total = shifts
-      .filter((s) => s.staffName === staff.name)
-      .reduce((acc, s) => acc + s.totalHours, 0);
-    const totalFixed = Math.round(total * 100) / 100;
-    return {
-      ...staff,
-      currentHours: totalFixed,
-      remaining: Math.floor((staff.target - totalFixed) * 100) / 100,
-      progressPercent: Math.min((totalFixed / staff.target) * 100, 100),
-    };
+  const { handleSyncToGAS } = useGasSync({
+    isProcessing,
+    isReadOnly,
+    shifts,
+    staffs,
+    weekId,
+    lang,
+    t,
+    setIsProcessing,
   });
+
+  const { handleAddShift } = useShiftCreation({
+    isProcessing,
+    setIsProcessing,
+    selectedStaff,
+    isReadOnly,
+    isEditLocked,
+    staffs,
+    t,
+    weekId,
+    setShifts,
+    timeToMins,
+    minsToTime,
+    calcTotalHours,
+  });
+
+  const { handleSaveAsTemplate } = useShiftTemplates({
+    isProcessing,
+    isReadOnly,
+    shifts,
+    setIsProcessing,
+    calcTotalHours,
+    user,
+    t,
+  });
+
+  const dashboardData = buildDashboardData(staffs, shifts);
 
   // 1. Login
   if (loading) {

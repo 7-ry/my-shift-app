@@ -1,0 +1,64 @@
+# Codex Session Log
+
+This log reconstructs the current project state from local git history and known Codex session outcomes.
+
+## Timeline
+
+- Phase 0 to Phase 2: Added minimal Vitest setup and helper tests before changing helper behavior.
+- Lint cleanup phase: Removed safe unused imports/props and fixed duplicate keys without touching business behavior.
+- PR #4: Added `docs/gas-sync-spec.md` to document BOH schedule GAS sync behavior.
+- PR #5: Extracted `buildGASPayload` and added GAS payload contract tests.
+- PR #6: Split GAS payload building into internal builder functions.
+- PR #7: Fixed dashboard OVER status contract for the Apps Script receiver.
+- PR #8: Optimized dashboard row total calculation with a `Map`.
+- PR #9: Added `GAS_STATUS_OVER` cleanup and documentation clarification.
+- PR #10: Extracted week-specific shift reads into `useWeekShifts`.
+- PR #11: Hardened `useWeekShifts` with stale-response guard and Firestore error logging.
+- PR #12: Cleared shifts when the user is missing.
+- PR #13: Extracted staff fetching and initial staff bootstrap into `useStaffs`.
+- Architecture cleanup follow-ups: extracted dashboard data, week navigation, auth state handling, shift creation, template save logic, and copy week logic into focused utilities/hooks.
+- Documentation follow-up: added `docs/test-plan.md`.
+- Current session: added GitHub Actions CI for test, build, and lint.
+- Architecture reassessment: added `docs/architecture-audit.md` and reclassified remaining work before main.
+- Owner decision: defer main merge and complete remaining necessary refactors before final regression.
+- Header clear-week extraction: moved the destructive current-week clear write from `Header` into `useClearWeek`.
+- CopyWeekModal template extraction: moved template fetch/apply/delete Firestore logic into `useCopyWeekTemplates`.
+- EditShiftModal extraction: moved shift save/delete Firestore logic into `useEditShiftActions`.
+- StaffManagementModal basic actions extraction: moved staff add/deactivate/reorder Firestore logic into `useStaffManagementBasicActions`.
+- StaffManagementModal update/cascade extraction: moved staff update and staff-name/color cascade Firestore logic into `useStaffUpdateActions`.
+- GAS sync orchestration extraction: moved App-level sync orchestration into `useGasSync` while preserving `syncToGAS` and payload behavior.
+
+## GAS Sync Work Summary
+
+- The production sync target is the BOH schedule spreadsheet.
+- `docs/gas-sync-spec.md` documents the current frontend payload and spreadsheet mapping.
+- `src/services/gasService.js` now builds payloads through focused internal builders.
+- Payload keys remain:
+  - `weekId`
+  - `weekLabel`
+  - `scheduleCommands`
+  - `dashboardRows`
+  - `shiftDataRows`
+- `syncToGAS` still uses the same signature and `mode: 'no-cors'`.
+- GAS receiver compatibility was protected by tests, including the stable `⚠️ OVER` dashboard status.
+
+## Firestore Hook Extraction Summary
+
+- `src/hooks/useWeekShifts.js` owns week shift reads from the `shifts` collection.
+- `useWeekShifts` preserves the original query and mapping.
+- It now prevents stale async responses from overwriting current state.
+- It clears shifts when `user` is missing.
+- `src/hooks/useStaffs.js` owns staff reads and initial staff bootstrap from the `staffs` collection.
+- `useStaffs` preserves read-only behavior, `hasInitialized` behavior, initial staff data, ordering, active filtering, and selected staff initialization.
+
+## Current State
+
+- Current branch at inspection: `codex/add-progress-tracking-docs`
+- HEAD at inspection: `406e999`
+- Working tree before creating these docs: clean
+- Existing hooks: `useShiftDrag`, `useWeekShifts`, `useStaffs`
+- Existing docs before this update: `docs/gas-sync-spec.md`
+
+## Decision
+
+With GAS sync orchestration extraction complete, the required before-main refactors are complete. The next recommended step is final regression and merge-readiness review before merging `codex/architecture-cleanup` into `main`.

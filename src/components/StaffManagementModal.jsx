@@ -1,15 +1,6 @@
 import React, { useState } from 'react';
-import {
-  doc,
-  addDoc,
-  collection,
-  updateDoc,
-  writeBatch,
-  getDocs,
-  query,
-  where,
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { useStaffManagementBasicActions } from '../hooks/useStaffManagementBasicActions';
+import { useStaffUpdateActions } from '../hooks/useStaffUpdateActions';
 
 const StaffManagementModal = ({
   showStaffModal,
@@ -30,40 +21,27 @@ const StaffManagementModal = ({
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [staffEditData, setStaffEditData] = useState({});
   const [showAddForm, setShowAddForm] = useState(false);
+  const { handleAddStaff, handleDeleteStaff, handleMoveStaff } =
+    useStaffManagementBasicActions({
+      staffs,
+      setStaffs,
+      newStaff,
+      setNewStaff,
+      isProcessing,
+      setIsProcessing,
+      t,
+    });
+  const { handleUpdateStaff } = useStaffUpdateActions({
+    staffs,
+    setStaffs,
+    setShifts,
+    staffEditData,
+    setEditingStaffId,
+    isProcessing,
+    setIsProcessing,
+  });
 
   if (!showStaffModal) return null;
-
-  const handleAddStaff = async (e) => {
-    e.preventDefault();
-    if (isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const newOrder = staffs.length;
-      const docRef = await addDoc(collection(db, 'staffs'), {
-        ...newStaff,
-        order: newOrder,
-      });
-      setStaffs([...staffs, { id: docRef.id, ...newStaff, order: newOrder }]);
-      setNewStaff({ name: '', color: '#cbd5e1', target: 24 });
-    } catch (e) {
-      console.error(e);
-    }
-    setIsProcessing(false);
-  };
-
-  const handleDeleteStaff = async (id) => {
-    if (!window.confirm(t.confirmStaffDelete)) return;
-    setIsProcessing(true);
-    try {
-      await updateDoc(doc(db, 'staffs', id), {
-        isActive: false,
-      });
-      setStaffs(staffs.filter((s) => s.id !== id));
-    } catch (e) {
-      console.error(e);
-    }
-    setIsProcessing(false);
-  };
 
   const handleStartEditStaff = (staff) => {
     setEditingStaffId(staff.id);
@@ -73,74 +51,6 @@ const StaffManagementModal = ({
       target: staff.target,
       offDays: staff.offDays || [], // 🌟 追加（既存データがない場合は空配列）
     });
-  };
-
-  const handleMoveStaff = async (index, direction) => {
-    if (isProcessing) return;
-    const newStaffs = [...staffs];
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= newStaffs.length) return;
-    setIsProcessing(true);
-    [newStaffs[index], newStaffs[targetIndex]] = [
-      newStaffs[targetIndex],
-      newStaffs[index],
-    ];
-    const batch = writeBatch(db);
-    newStaffs.forEach((s, i) => {
-      batch.update(doc(db, 'staffs', s.id), { order: i });
-    });
-    try {
-      await batch.commit();
-      setStaffs(newStaffs);
-    } catch (e) {
-      console.error(e);
-    }
-    setIsProcessing(false);
-  };
-
-  const handleUpdateStaff = async (staffId) => {
-    if (isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const oldStaff = staffs.find((s) => s.id === staffId);
-      await updateDoc(doc(db, 'staffs', staffId), staffEditData);
-      if (
-        oldStaff.name !== staffEditData.name ||
-        oldStaff.color !== staffEditData.color
-      ) {
-        const batch = writeBatch(db);
-        const q = query(
-          collection(db, 'shifts'),
-          where('staffName', '==', oldStaff.name)
-        );
-        const snapshot = await getDocs(q);
-        snapshot.forEach((d) => {
-          batch.update(doc(db, 'shifts', d.id), {
-            staffName: staffEditData.name,
-            color: staffEditData.color,
-          });
-        });
-        await batch.commit();
-        setShifts((prev) =>
-          prev.map((s) =>
-            s.staffName === oldStaff.name
-              ? {
-                  ...s,
-                  staffName: staffEditData.name,
-                  color: staffEditData.color,
-                }
-              : s
-          )
-        );
-      }
-      setStaffs((prev) =>
-        prev.map((s) => (s.id === staffId ? { ...s, ...staffEditData } : s))
-      );
-      setEditingStaffId(null);
-    } catch (e) {
-      console.error(e);
-    }
-    setIsProcessing(false);
   };
 
   // 🌟 共通の曜日選択ボタン用ロジック（コンポーネント内の return 前に置くと便利）
