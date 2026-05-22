@@ -2,29 +2,52 @@
 
 ## Safest Next Implementation Step
 
-After GAS sync orchestration extraction, the required before-main refactors are complete. The safest next step is final regression and merge-readiness review before any merge to `main`.
+The architecture-cleanup branch has been merged into `main`. The project is now in the post-main safety follow-up phase.
+
+Do not start broad refactors or new feature work yet. First, follow the ordered roadmap in `docs/post-main-roadmap.md`.
 
 ## Target Files
 
-Likely files to inspect:
+Read first:
 
+- `docs/post-main-roadmap.md`
 - `docs/test-plan.md`
 - `docs/architecture-audit.md`
-- GitHub Actions checks for `codex/architecture-cleanup`
-- Final PR diff
+- `docs/gas-sync-spec.md`
+- `src/hooks/useStaffUpdateActions.js`
+- `src/hooks/useCopyWeek.js`
+- `src/hooks/useGasSync.js`
+- `src/hooks/useShiftDrag.js`
 
 ## Exact Constraints
 
-- Do not change rendered UI.
+- Branch from `main` for all new work.
+- Keep each PR small and single-purpose.
+- Do not change rendered UI unless the task explicitly requires it.
 - Do not change Firestore collection names or document shapes.
 - Do not change Google Apps Script payload shape.
-- Do not perform new refactors during final review unless a blocking issue is found.
-- Preserve read-only behavior, edit-lock semantics, drag behavior, weekly navigation, copy week, template behavior, staff management, and GAS sync entry point.
 - Do not run real production GAS sync unless explicitly approved.
+- Do not refactor drag behavior unless a concrete bug is confirmed.
+- Do not mix safety follow-ups with new feature work.
 
-## Verification Commands
+## Recommended Next PR
 
-Run or confirm before merge-readiness:
+Create a small branch from `main`:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b codex/staff-update-error-feedback
+```
+
+Goal:
+
+- Add user-facing failure feedback for staff update/cascade failures.
+- Preserve `console.error`.
+- Preserve the current Firestore batch/cascade behavior.
+- Do not solve the batch limit issue in the same PR.
+
+Suggested verification:
 
 ```bash
 npm test -- --run
@@ -32,20 +55,17 @@ npm run build
 npm run lint
 ```
 
-## Manual Checks
+## Next Roadmap After That
 
-For final regression, manually verify:
+Follow this order:
 
-- Login/logout.
-- Read-only viewer restrictions.
-- Edit lock restrictions.
-- Staff management add/edit/deactivate/reorder.
-- Shift create/edit/delete/drag.
-- Weekly navigation and jump to today.
-- Copy week and template save/apply/delete.
-- GAS sync entry point, including read-only blocking and missing `VITE_GAS_URL`.
-- Do not run real production GAS sync unless explicitly approved.
+1. Staff update failure user-facing alert.
+2. Staff cascade batch limit guard design.
+3. Non-production GAS sync verification environment.
+4. Manuscript / new feature updates.
+5. Optional project re-audit after safety follow-ups or real production usage.
+6. Drag behavior remains deferred unless a concrete bug appears.
 
 ## Recommendation
 
-Complete final regression and merge-readiness review next. Defer `main` merge until the project owner accepts the final automated and manual regression results.
+Start with `codex/staff-update-error-feedback`. Do not start a broad audit or drag refactor yet.
