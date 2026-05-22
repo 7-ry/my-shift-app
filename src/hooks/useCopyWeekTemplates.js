@@ -68,7 +68,9 @@ export const useCopyWeekTemplates = ({
         return { id: newDocRef.id, ...data };
       });
 
-      await batch.commit();
+      if (!currentSnap.empty || (templateShifts && templateShifts.length > 0)) {
+        await batch.commit();
+      }
       setShifts(newShifts);
       setShowCopyModal(false);
       alert(t.templateApplySuccess);
