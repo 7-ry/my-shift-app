@@ -20,6 +20,7 @@ This plan replaces the earlier ordering with the actual current repository state
 - Copy week hook extraction.
 - Header clear-week hook extraction.
 - CopyWeekModal template fetch/apply/delete hook extraction.
+- EditShiftModal save/delete hook extraction.
 - Test plan documentation in `docs/test-plan.md`.
 - CI workflow for pull requests and pushes to `codex/architecture-cleanup`.
 - Architecture audit documentation in `docs/architecture-audit.md`.
@@ -30,13 +31,12 @@ This plan replaces the earlier ordering with the actual current repository state
 
 ## Next Safe Order
 
-1. Extract EditShiftModal save/delete logic.
-2. Extract StaffManagementModal write logic in small safe batches.
-3. Extract GAS sync orchestration from `App.jsx`.
-4. Consider a small Firestore service layer only if it reduces duplication without changing behavior.
-5. Confirm CI and local checks.
-6. Use `docs/test-plan.md` for manual regression coverage.
-7. Run final PR review and merge-readiness check.
+1. Extract StaffManagementModal write logic in small safe batches.
+2. Extract GAS sync orchestration from `App.jsx`.
+3. Consider a small Firestore service layer only if it reduces duplication without changing behavior.
+4. Confirm CI and local checks.
+5. Use `docs/test-plan.md` for manual regression coverage.
+6. Run final PR review and merge-readiness check.
 
 ## Later Phases
 

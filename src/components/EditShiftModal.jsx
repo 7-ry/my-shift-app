@@ -1,6 +1,5 @@
 import React from 'react';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useEditShiftActions } from '../hooks/useEditShiftActions';
 
 const EditShiftModal = ({
   editingShift,
@@ -12,48 +11,18 @@ const EditShiftModal = ({
   t,
   isReadOnly,
 }) => {
+  const { onSave, onDelete } = useEditShiftActions({
+    editingShift,
+    setEditingShift,
+    setShifts,
+    calcTotalHours,
+    isProcessing,
+    setIsProcessing,
+    t,
+    isReadOnly,
+  });
+
   if (!editingShift) return null;
-
-  const onSave = async (e) => {
-    if (e) e.preventDefault();
-    if (isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const total = calcTotalHours(
-        editingShift.startTime,
-        editingShift.endTime,
-        editingShift.breakHours,
-        0
-      );
-      await updateDoc(doc(db, 'shifts', editingShift.id), {
-        ...editingShift,
-        totalHours: total,
-      });
-      setShifts((prev) =>
-        prev.map((s) =>
-          s.id === editingShift.id ? { ...editingShift, totalHours: total } : s
-        )
-      );
-      setEditingShift(null);
-    } catch (error) {
-      console.error(error);
-    }
-    setIsProcessing(false);
-  };
-
-  const onDelete = async () => {
-    if (isProcessing) return;
-    if (!window.confirm(t.confirmDelete)) return;
-    setIsProcessing(true);
-    try {
-      await deleteDoc(doc(db, 'shifts', editingShift.id));
-      setShifts((prev) => prev.filter((s) => s.id !== editingShift.id));
-      setEditingShift(null);
-    } catch (error) {
-      console.error(error);
-    }
-    setIsProcessing(false);
-  };
 
   return (
     <>
