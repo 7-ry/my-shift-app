@@ -3,7 +3,6 @@ import {
   doc,
   getDocs,
   query,
-  updateDoc,
   where,
   writeBatch,
 } from 'firebase/firestore';
@@ -24,12 +23,13 @@ export const useStaffUpdateActions = ({
     try {
       const oldStaff = staffs.find((s) => s.id === staffId);
       if (!oldStaff) throw new Error(`Staff with ID ${staffId} not found.`);
-      await updateDoc(doc(db, 'staffs', staffId), staffEditData);
-      if (
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'staffs', staffId), staffEditData);
+      const shouldCascadeShifts =
         oldStaff.name !== staffEditData.name ||
-        oldStaff.color !== staffEditData.color
-      ) {
-        const batch = writeBatch(db);
+        oldStaff.color !== staffEditData.color;
+
+      if (shouldCascadeShifts) {
         const q = query(
           collection(db, 'shifts'),
           where('staffName', '==', oldStaff.name)
@@ -41,7 +41,11 @@ export const useStaffUpdateActions = ({
             color: staffEditData.color,
           });
         });
-        await batch.commit();
+      }
+
+      await batch.commit();
+
+      if (shouldCascadeShifts) {
         setShifts((prev) =>
           prev.map((s) =>
             s.staffName === oldStaff.name

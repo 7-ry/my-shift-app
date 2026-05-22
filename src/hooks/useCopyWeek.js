@@ -75,7 +75,7 @@ export const useCopyWeek = ({
       await batch.commit();
       setShifts(newShifts);
       setShowCopyModal(false);
-      alert('Success!');
+      alert(t.copySuccess || 'Success!');
     } catch (e) {
       console.error(e);
     } finally {
