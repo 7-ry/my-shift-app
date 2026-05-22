@@ -161,8 +161,7 @@ Facts found in `src/components`:
 - `StaffManagementModal`
   - Renders staff add, deactivate, reorder, and update UI.
   - Uses `useStaffManagementBasicActions` for staff add, deactivate, and reorder Firestore writes.
-  - Still contains staff update logic.
-  - Cascades staff name/color updates into matching shift documents.
+  - Uses `useStaffUpdateActions` for staff update and staff name/color cascade Firestore writes.
   - This is business-sensitive because it affects historical/past shifts if those are included in the query.
 - `EditShiftModal`
   - Renders shift edit/delete UI.
@@ -238,6 +237,7 @@ Completed work, based on current code and docs:
 - Extracted CopyWeekModal template fetch/apply/delete logic into `useCopyWeekTemplates`.
 - Extracted EditShiftModal save/delete write logic into `useEditShiftActions`.
 - Extracted StaffManagementModal basic add/deactivate/reorder write logic into `useStaffManagementBasicActions`.
+- Extracted StaffManagementModal update and staff-name/color cascade logic into `useStaffUpdateActions`.
 - Added `docs/test-plan.md`.
 - Added GitHub Actions CI for test, build, and lint.
 
@@ -245,7 +245,6 @@ Completed work, based on current code and docs:
 
 ### Required Before Main
 
-- Extract StaffManagementModal update and staff-name/color cascade logic into focused hooks/helpers while preserving current behavior.
 - Extract GAS sync orchestration from `App.jsx` into a focused hook or helper while preserving `syncToGAS` signature, `mode: 'no-cors'`, confirmation/alert behavior, and payload shape.
 - Confirm CI passes for the integration PR.
 - Run or confirm:
@@ -303,13 +302,13 @@ This architecture-cleanup phase is done when:
 
 ## 11. Next Recommended PR
 
-Next PR should extract StaffManagementModal update and staff-name/color cascade logic.
+Next PR should extract GAS sync orchestration from `App.jsx`.
 
 Recommended scope:
 
-- Move StaffManagementModal update and staff-name/color cascade Firestore writes into a focused hook or helper.
-- Preserve staff update behavior, inactive staff behavior, Firestore collection names, and document shapes.
-- Preserve current staff name/color cascade behavior into matching shift documents, including the current query scope.
-- Keep StaffManagementModal props unchanged if possible.
+- Move GAS sync orchestration out of `App.jsx` into a focused hook or helper.
+- Preserve `syncToGAS` signature, `mode: 'no-cors'`, confirmation/alert behavior, and payload shape.
+- Preserve read-only blocking and missing `VITE_GAS_URL` behavior.
+- Keep App/Header props unchanged if possible.
 - Run `npm test -- --run`, `npm run build`, and `npm run lint`.
-- Manually verify staff edit, staff-name/color cascade behavior, local staff/shift updates, and that add/deactivate/reorder still work after the basic-action extraction.
+- Manually verify sync entry point, read-only blocking, missing GAS URL alert, selected week confirmation, and no real production GAS sync unless explicitly approved.

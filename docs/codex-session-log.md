@@ -25,6 +25,7 @@ This log reconstructs the current project state from local git history and known
 - CopyWeekModal template extraction: moved template fetch/apply/delete Firestore logic into `useCopyWeekTemplates`.
 - EditShiftModal extraction: moved shift save/delete Firestore logic into `useEditShiftActions`.
 - StaffManagementModal basic actions extraction: moved staff add/deactivate/reorder Firestore logic into `useStaffManagementBasicActions`.
+- StaffManagementModal update/cascade extraction: moved staff update and staff-name/color cascade Firestore logic into `useStaffUpdateActions`.
 
 ## GAS Sync Work Summary
 
@@ -59,4 +60,4 @@ This log reconstructs the current project state from local git history and known
 
 ## Decision
 
-With StaffManagementModal basic actions extracted, the next recommended step is StaffManagementModal update and staff-name/color cascade extraction. Final merge-readiness is deferred until the remaining required refactors and final regression are complete.
+With StaffManagementModal update/cascade extraction complete, the next recommended step is GAS sync orchestration extraction from `App.jsx`. Final merge-readiness is deferred until the remaining required refactor and final regression are complete.
