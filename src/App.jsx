@@ -193,6 +193,8 @@ function App() {
 
         {/* 📅 タイムテーブルコンテナ */}
         <ShiftTable
+          weekId={weekId}
+          lang={lang}
           DAYS={DAYS}
           LANES={LANES}
           TIMES={TIMES}

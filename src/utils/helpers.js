@@ -1,4 +1,4 @@
-import { TABLE_HOURS } from '../constants/config';
+import { DAYS, TABLE_HOURS } from '../constants/config';
 
 // --- 🌟 ヘルパー関数 ---
 export const getColumnLetter = (colIndex) => {
@@ -89,6 +89,39 @@ export const calcTotalHours = (start, end, breakHours = 0, roundStep = 0) => {
   // 最後に小数点第2位で丸める
   return Math.round(total * 100) / 100;
 };
+
+const getScheduleLocale = (lang) => (lang === 'en' ? 'en-CA' : 'ja-JP');
+
+export const getWeekDates = (weekId) => {
+  if (typeof weekId !== 'string' || !/^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/.test(weekId)) {
+    return {};
+  }
+
+  const [year, week] = weekId.split('-W').map(Number);
+  // January 4 is always in ISO week 1.
+  const monday = new Date(year, 0, 4);
+  const daysSinceMonday = (monday.getDay() + 6) % 7;
+  monday.setDate(4 - daysSinceMonday + (week - 1) * 7);
+  if (getCurrentWeekId(monday) !== weekId) return {};
+
+  return Object.fromEntries(
+    DAYS.map((day, index) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + index);
+      return [day, date];
+    })
+  );
+};
+
+export const formatShiftDate = (date, lang = 'en') =>
+  new Intl.DateTimeFormat(getScheduleLocale(lang), {
+    month: 'numeric',
+    day: 'numeric',
+  })
+    .formatToParts(date)
+    .filter(({ type }) => type === 'month' || type === 'day')
+    .map(({ value }) => value)
+    .join('/');
 
 export const getWeekDisplayVerbose = (weekId, lang = 'en') => {
   if (!weekId || !weekId.includes('-W')) return '';
