@@ -6,6 +6,7 @@ import { signOut } from 'firebase/auth';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import ShiftTable from './components/ShiftTable';
+import MobileScheduleTabs from './components/MobileScheduleTabs';
 import StaffDetailModal from './components/StaffDetailModal';
 import EditShiftModal from './components/EditShiftModal';
 import StaffManagementModal from './components/StaffManagementModal';
@@ -43,6 +44,7 @@ function App() {
   );
   const t = translations[lang];
 
+  const [mobileTab, setMobileTab] = useState('shift');
   const [staffs, setStaffs] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [shifts, setShifts] = useState([]);
@@ -185,41 +187,45 @@ function App() {
         isEditLocked={isEditLocked}
         setIsEditLocked={setIsEditLocked}
       />
-      {/* DASHBOARD */}
-      <div className="max-w-[1600px] mx-auto px-4 md:px-6 mt-6">
-        <Dashboard
-          dashboardData={dashboardData}
-          setViewingStaffDetail={setViewingStaffDetail}
-          t={t}
-        />
-
-        {/* 📅 タイムテーブルコンテナ */}
-        <ShiftTable
-          weekId={weekId}
-          lang={lang}
-          DAYS={DAYS}
-          LANES={LANES}
-          TIMES={TIMES}
-          ROW_HEIGHT={ROW_HEIGHT}
-          shifts={shifts}
-          dragInfo={dragInfo}
-          isActuallyDragging={isActuallyDragging}
-          t={t}
-          formatTime12={formatTime12}
-          timeToMins={timeToMins}
-          isEditLocked={isEditLocked}
-          isReadOnly={isReadOnly}
-          handleAddShift={handleAddShift}
-          setEditingShift={setEditingShift}
-          handlePointerDownShift={handlePointerDownShift}
-          handlePointerMove={handlePointerMove}
-          handlePointerUp={handlePointerUp}
-          selectedShiftId={selectedShiftId}
-          setSelectedShiftId={setSelectedShiftId}
-          staffs={staffs} // 🌟 追加
-          selectedStaff={selectedStaff} // 🌟 追加
-        />
-      </div>
+      <MobileScheduleTabs activeTab={mobileTab} onTabChange={setMobileTab} t={t}>
+        <div
+          id="mobile-totals-panel"
+          className={mobileTab === 'totals' ? 'max-md:touch-pan-y md:contents' : 'hidden md:contents'}
+        >
+          <Dashboard
+            dashboardData={dashboardData}
+            setViewingStaffDetail={setViewingStaffDetail}
+            t={t}
+          />
+        </div>
+        <div id="mobile-shift-panel" className={mobileTab === 'shift' ? 'contents' : 'hidden md:contents'}>
+          <ShiftTable
+            weekId={weekId}
+            lang={lang}
+            DAYS={DAYS}
+            LANES={LANES}
+            TIMES={TIMES}
+            ROW_HEIGHT={ROW_HEIGHT}
+            shifts={shifts}
+            dragInfo={dragInfo}
+            isActuallyDragging={isActuallyDragging}
+            t={t}
+            formatTime12={formatTime12}
+            timeToMins={timeToMins}
+            isEditLocked={isEditLocked}
+            isReadOnly={isReadOnly}
+            handleAddShift={handleAddShift}
+            setEditingShift={setEditingShift}
+            handlePointerDownShift={handlePointerDownShift}
+            handlePointerMove={handlePointerMove}
+            handlePointerUp={handlePointerUp}
+            selectedShiftId={selectedShiftId}
+            setSelectedShiftId={setSelectedShiftId}
+            staffs={staffs} // 🌟 追加
+            selectedStaff={selectedStaff} // 🌟 追加
+          />
+        </div>
+      </MobileScheduleTabs>
       <StaffDetailModal
         viewingStaffDetail={
           viewingStaffDetail && dashboardData.find((staff) => staff.id === viewingStaffDetail.id)
