@@ -1,4 +1,4 @@
-// src/services/gasService.js
+import { buildDashboardData } from '../utils/dashboardData';
 
 const GAS_STATUS_OVER = '⚠️ OVER';
 
@@ -13,25 +13,16 @@ const buildShiftDataRows = (shifts) =>
     s.totalHours,
   ]);
 
-const buildDashboardRows = (staffs, shifts, t) => {
-  const totalsByStaff = new Map();
-  shifts.forEach((shift) => {
-    totalsByStaff.set(
-      shift.staffName,
-      (totalsByStaff.get(shift.staffName) || 0) + shift.totalHours
-    );
-  });
-
-  return staffs.map((staff) => {
-    const total = totalsByStaff.get(staff.name) || 0;
-    const current = Math.round(total * 100) / 100,
-      rem = Math.round((staff.target - current) * 100) / 100;
-    let statusLabel = t.met;
-    if (rem < 0) statusLabel = GAS_STATUS_OVER;
-    else if (rem > 0) statusLabel = t.room;
-    return [staff.name, current, staff.target, '', rem, statusLabel];
-  });
-};
+const buildDashboardRows = (staffs, shifts, weekId, t) =>
+  buildDashboardData(staffs, shifts, weekId).map(
+    ({ name, target, rawHours, weightedHours }) => {
+      const rem = Math.round((target - rawHours) * 100) / 100;
+      let statusLabel = t.met;
+      if (rem < 0) statusLabel = GAS_STATUS_OVER;
+      else if (rem > 0) statusLabel = t.room;
+      return [name, rawHours, target, '', rem, statusLabel, weightedHours];
+    }
+  );
 
 const buildScheduleCommands = (shifts, helpers) => {
   const { timeToMins, getSheetRowNum, getSheetCellByRow, formatTime12 } =
@@ -136,7 +127,7 @@ export const buildGASPayload = ({
     weekId,
     weekLabel: getWeekDisplayVerbose(weekId, lang),
     scheduleCommands: buildScheduleCommands(shifts, helpers),
-    dashboardRows: buildDashboardRows(staffs, shifts, t),
+    dashboardRows: buildDashboardRows(staffs, shifts, weekId, t),
     shiftDataRows: buildShiftDataRows(shifts),
   };
 };

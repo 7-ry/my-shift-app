@@ -1,8 +1,11 @@
 import React from 'react';
+import { isStatShift } from '../utils/dashboardData';
 
 const StaffDetailModal = ({
   viewingStaffDetail,
   setViewingStaffDetail,
+  setEditingShift,
+  weekId,
   shifts,
   DAYS,
   timeToMins,
@@ -47,13 +50,18 @@ const StaffDetailModal = ({
                 DAYS.indexOf(a.day) - DAYS.indexOf(b.day) ||
                 timeToMins(a.startTime) - timeToMins(b.startTime)
             )
-            .map((s, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-5 bg-slate-50 rounded-[24px] border border-slate-100 group hover:bg-white hover:shadow-xl transition-all duration-300"
+            .map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setViewingStaffDetail(null);
+                  setEditingShift(s);
+                }}
+                className="flex w-full cursor-pointer text-left items-center justify-between p-5 bg-slate-50 rounded-[24px] border border-slate-100 group hover:bg-white hover:shadow-xl transition-all duration-300"
               >
-                <div className="flex items-center gap-5">
-                  <div
+                <span className="flex items-center gap-5">
+                  <span
                     className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black text-white shadow-lg"
                     style={{ backgroundColor: viewingStaffDetail.color }}
                   >
@@ -61,25 +69,33 @@ const StaffDetailModal = ({
                       {s.day}
                     </span>
                     <span className="text-xl leading-none mt-1">L{s.lane}</span>
-                  </div>
-                  <div>
-                    <div className="text-base font-black text-slate-800 tracking-tight">
+                  </span>
+                  <span>
+                    <span className="block text-base font-black text-slate-800 tracking-tight">
                       {formatTime12(s.startTime)} - {formatTime12(s.endTime)}
-                    </div>
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    </span>
+                    <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       {t.break}: {s.breakHours}h
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-black text-slate-800 leading-none">
+                    </span>
+                    {isStatShift(s, weekId) && (
+                      <span className="block text-[11px] font-bold text-amber-800">
+                        {t.statHoliday}
+                      </span>
+                    )}
+                    <span className="block text-[11px] font-bold text-blue-700">
+                      {t.editShift}
+                    </span>
+                  </span>
+                </span>
+                <span className="text-right">
+                  <span className="block text-2xl font-black text-slate-800 leading-none">
                     {s.totalHours}
-                  </div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+                  </span>
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase mt-1">
                     {t.unitHrs}
-                  </div>
-                </div>
-              </div>
+                  </span>
+                </span>
+              </button>
             ))}
           {shifts.filter((s) => s.staffName === viewingStaffDetail.name)
             .length === 0 && (
@@ -90,7 +106,7 @@ const StaffDetailModal = ({
         </div>
         <div className="p-8 bg-slate-900 flex justify-between items-center text-white">
           <span className="text-xs font-black uppercase tracking-widest opacity-60">
-            {t.totalHours}
+            {viewingStaffDetail.statHours > 0 ? t.weightedHours : t.totalHours}
           </span>
           <span className="text-3xl font-black">
             {viewingStaffDetail.currentHours}{' '}
