@@ -1,5 +1,12 @@
 // src/constants/config.js
 
+export const TABLE_HOURS = {
+  earliestStart: '09:00',
+  latestStart: '23:00',
+  earliestEnd: '09:30',
+  latestEnd: '23:30',
+};
+
 export const translations = {
   en: {
     week: 'Week',
@@ -31,6 +38,7 @@ export const translations = {
     confirmStaffDelete: 'Delete this staff member?',
     doubleClickHint: 'Double-click to add',
     logout: 'Logout',
+    invalidTableHours: 'Start must be 09:00–23:00 and end must be 09:30–23:30, after the start on the same day.',
     start: 'START',
     end: 'END',
     lockTitle: 'Enable Editing',
@@ -99,6 +107,7 @@ export const translations = {
     confirmStaffDelete: 'このスタッフを削除しますか？',
     doubleClickHint: 'ダブルクリックで追加',
     logout: 'ログアウト',
+    invalidTableHours: '開始は09:00〜23:00、終了は09:30〜23:30の範囲で、終了は同日の開始より後にしてください。',
     start: '開始時刻',
     end: '終了時刻',
     lockTitle: '編集を有効にする',

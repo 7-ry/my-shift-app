@@ -1,3 +1,5 @@
+import { TABLE_HOURS } from '../constants/config';
+
 // --- 🌟 ヘルパー関数 ---
 export const getColumnLetter = (colIndex) => {
   let letter = '';
@@ -34,6 +36,23 @@ export const timeToMins = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
+};
+
+export const isWithinTableHours = (start, end) => {
+  const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+  return (
+    typeof start === 'string' &&
+    typeof end === 'string' &&
+    timePattern.test(start) &&
+    timePattern.test(end) &&
+    start.length === 5 &&
+    end.length === 5 &&
+    start >= TABLE_HOURS.earliestStart &&
+    start <= TABLE_HOURS.latestStart &&
+    end >= TABLE_HOURS.earliestEnd &&
+    end <= TABLE_HOURS.latestEnd &&
+    end > start
+  );
 };
 
 export const minsToTime = (mins) => {
