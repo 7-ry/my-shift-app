@@ -38,6 +38,11 @@ const Dashboard = ({ dashboardData, setViewingStaffDetail, t }) => {
                   / {d.target}h
                 </span>
               </div>
+              {d.hasSixDayStreak && (
+                <span className="relative z-10 mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-900">
+                  {t.sixDayStreak}
+                </span>
+              )}
               {d.statHours > 0 && (
                 <div className="relative z-10 mt-1 text-[10px] font-bold text-amber-800">
                   {t.statHoursBreakdown(d.rawHours, d.statHours)}

@@ -18,7 +18,7 @@ import {
   formatTime12,
   getWeekDisplayVerbose,
 } from './utils/helpers.js';
-import { buildDashboardData } from './utils/dashboardData';
+import { buildDashboardDataWithStreaks } from './utils/dashboardData';
 import { useShiftDrag } from './hooks/useShiftDrag';
 import {
   translations,
@@ -29,6 +29,7 @@ import {
   DRAG_THRESHOLD,
 } from './constants/config';
 import { useWeekShifts } from './hooks/useWeekShifts';
+import { useAdjacentWeekShifts } from './hooks/useAdjacentWeekShifts';
 import { useStaffs } from './hooks/useStaffs';
 import { useWeekNavigation } from './hooks/useWeekNavigation';
 import { useAuthUser } from './hooks/useAuthUser';
@@ -76,6 +77,7 @@ function App() {
   useStaffs({ user, isReadOnly, hasInitialized, setStaffs, setSelectedStaff });
 
   useWeekShifts({ user, weekId, setShifts });
+  const adjacentShifts = useAdjacentWeekShifts({ user, weekId });
 
   const {
     handlePointerMove,
@@ -132,7 +134,7 @@ function App() {
     t,
   });
 
-  const dashboardData = buildDashboardData(staffs, shifts, weekId);
+  const dashboardData = buildDashboardDataWithStreaks(staffs, shifts, weekId, adjacentShifts);
 
   // 1. Login
   if (loading) {
@@ -219,7 +221,10 @@ function App() {
         />
       </div>
       <StaffDetailModal
-        viewingStaffDetail={viewingStaffDetail}
+        viewingStaffDetail={
+          viewingStaffDetail && dashboardData.find((staff) => staff.id === viewingStaffDetail.id)
+        }
+        lang={lang}
         setViewingStaffDetail={setViewingStaffDetail}
         setEditingShift={setEditingShift}
         weekId={weekId}

@@ -13,6 +13,8 @@ import {
   isStatHoliday,
   isWithinTableHours,
   minsToTime,
+  nextWeekId,
+  prevWeekId,
   timeToMins,
 } from './helpers';
 
@@ -178,5 +180,18 @@ describe('isWithinTableHours', () => {
     ['09:00', ''],
   ])('rejects %s–%s', (start, end) => {
     expect(isWithinTableHours(start, end)).toBe(false);
+  });
+});
+
+describe('adjacent ISO week IDs', () => {
+  it.each([
+    ['2026-W19', '2026-W18', '2026-W20'],
+    ['2026-W01', '2025-W52', '2026-W02'],
+    ['2026-W53', '2026-W52', '2027-W01'],
+    ['2027-W01', '2026-W53', '2027-W02'],
+    ['2027-W53', undefined, undefined],
+  ])('finds both neighbors of %s', (weekId, previous, next) => {
+    expect(prevWeekId(weekId)).toBe(previous);
+    expect(nextWeekId(weekId)).toBe(next);
   });
 });
