@@ -29,9 +29,11 @@ export const useShiftDrag = ({
       return; // ここで終了
     }
     const currentTarget = e.currentTarget; // ★要素を取得
+    const rowHeight = getComputedStyle(currentTarget).getPropertyValue('--shift-row-height');
     setDragInfo({
       id: shift.id,
       type,
+      rowHeight: parseFloat(rowHeight) || ROW_HEIGHT,
       startY: e.clientY,
       startX: e.clientX,
       initStartMins: timeToMins(shift.startTime),
@@ -60,7 +62,7 @@ export const useShiftDrag = ({
         }
       }
 
-      const deltaMins = Math.round(((deltaY / ROW_HEIGHT) * 30) / 5) * 5;
+      const deltaMins = Math.round(((deltaY / dragInfo.rowHeight) * 30) / 5) * 5;
       const targetTd = document
         .elementsFromPoint(e.clientX, e.clientY)
         .find((el) => el.tagName === 'TD' && el.dataset.day);
@@ -112,7 +114,6 @@ export const useShiftDrag = ({
       dragInfo,
       isActuallyDragging,
       DRAG_THRESHOLD,
-      ROW_HEIGHT,
       timeToMins,
       minsToTime,
       calcTotalHours,

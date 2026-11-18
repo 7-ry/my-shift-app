@@ -43,11 +43,11 @@ const Header = ({
   }, [setShowMenu]);
 
   return (
-    <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 shadow-lg px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px]">
+    <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 shadow-lg px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px] max-md:h-28 max-md:gap-1 max-md:px-3 max-md:py-2">
       {' '}
-      <div className="flex items-center gap-3 md:gap-5 min-w-fit">
+      <div className="flex items-center gap-3 md:gap-5 min-w-fit max-md:min-w-0 max-md:w-full max-md:justify-between max-md:gap-1">
         <div className="flex flex-col">
-          <h1 className="text-lg md:text-xl font-black tracking-tight text-white leading-none">
+          <h1 className="text-lg max-md:text-sm md:text-xl font-black tracking-tight text-white leading-none">
             <span className="">SAKU</span>{' '}
             <span className="text-yellow-500 font-bold not-italic">
               Burquitlam
@@ -62,7 +62,7 @@ const Header = ({
           {' '}
           <button
             onClick={() => changeWeek(-1)}
-            className="w-8 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-all"
+            className="w-8 max-md:w-7 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-all"
           >
             ◀
           </button>
@@ -71,7 +71,7 @@ const Header = ({
               type="week"
               value={weekId}
               onChange={(e) => setWeekId(e.target.value)}
-              className="bg-transparent border-none text-xs font-black w-32 text-center focus:ring-0"
+              className="bg-transparent border-none text-xs font-black w-32 max-md:w-20 text-center focus:ring-0"
             />
             <div className="absolute inset-0 pointer-events-none bg-transparent group-hover:bg-black/5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               <span className="text-[10px] bg-slate-800 text-white px-1.5 rounded uppercase">
@@ -81,20 +81,20 @@ const Header = ({
           </div>
           <button
             onClick={() => changeWeek(1)}
-            className="w-8 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-all"
+            className="w-8 max-md:w-7 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-all"
           >
             ▶
           </button>
-          <div className="w-px h-4 bg-slate-300 mx-1"></div>
+          <div className="w-px h-4 bg-slate-300 mx-1 max-md:mx-0"></div>
           <button
             onClick={jumpToToday}
-            className="px-3 py-1 text-[10px] font-black uppercase hover:bg-white rounded-lg transition-all"
+            className="px-3 max-md:px-1.5 py-1 text-[10px] font-black uppercase hover:bg-white rounded-lg transition-all"
           >
             {t.today}
           </button>
         </div>
       </div>
-      <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+      <div className="flex items-center gap-2 flex-1 justify-end min-w-0 max-md:basis-full">
         {!isReadOnly && (
           <button
             onClick={() => setIsEditLocked(!isEditLocked)}

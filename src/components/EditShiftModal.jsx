@@ -44,14 +44,14 @@ const EditShiftModal = ({
       />
 
       <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4"
+        className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[70] p-4 max-md:p-2"
         onClick={() => !isProcessing && setEditingShift(null)}
       >
         <div
-          className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-6 md:p-8"
+          className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-6 md:p-8 max-md:max-h-full max-md:overflow-y-auto max-md:p-4"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-4 mb-8 max-md:mb-4">
             <div
               className="w-4 h-12 rounded-full shadow-sm"
               style={{ backgroundColor: editingShift.color }}
@@ -66,7 +66,7 @@ const EditShiftModal = ({
             </div>
           </div>
 
-          <form onSubmit={onSave} className="space-y-6">
+          <form onSubmit={onSave} className="space-y-6 max-md:space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-[0.2em]">

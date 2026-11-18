@@ -33,12 +33,13 @@ afterEach(() => {
 
 describe('shift drag table hours', () => {
   it.each([
-    ['move', '22:30'],
-    ['resize-bottom', '22:30'],
-    ['resize-top', '23:00'],
-  ])('clamps a downward %s before writing', async (type, expectedStart) => {
-    const shift = { id: 'shift', startTime: '22:30', endTime: '23:30', day: 'MON', lane: 1 };
-    const expectedTimes = { startTime: expectedStart, endTime: '23:30' };
+    ['move', '22:30', '23:30', '22:30', '23:30', ROW_HEIGHT],
+    ['resize-bottom', '22:30', '23:30', '22:30', '23:30', ROW_HEIGHT],
+    ['resize-top', '22:30', '23:30', '23:00', '23:30', ROW_HEIGHT],
+    ['move', '12:00', '13:00', '12:30', '13:30', 48],
+  ])('applies a downward %s from %s using the rendered row height', async (type, startTime, endTime, expectedStart, expectedEnd, rowHeight) => {
+    const shift = { id: 'shift', startTime, endTime, day: 'MON', lane: 1 };
+    const expectedTimes = { startTime: expectedStart, endTime: expectedEnd };
     const targetElement = {
       setPointerCapture: vi.fn(),
       hasPointerCapture: () => true,
@@ -66,6 +67,7 @@ describe('shift drag table hours', () => {
       });
     };
     vi.stubGlobal('document', { elementsFromPoint: () => [] });
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => `${rowHeight}px` }));
 
     renderHook().handlePointerDownShift({
       clientX: 0,
@@ -74,7 +76,7 @@ describe('shift drag table hours', () => {
       currentTarget: targetElement,
       stopPropagation: vi.fn(),
     }, shift, type);
-    renderHook().handlePointerMove({ clientX: 0, clientY: ROW_HEIGHT });
+    renderHook().handlePointerMove({ clientX: 0, clientY: rowHeight });
     expect(shifts[0]).toMatchObject(expectedTimes);
     await renderHook().handlePointerUp({ pointerId: 1 });
     expect(updateDoc).toHaveBeenCalledWith(
