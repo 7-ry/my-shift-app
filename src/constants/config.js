@@ -45,6 +45,9 @@ export const translations = {
     totalHours: 'Total Hours',
     weightedHours: 'Weighted Hours',
     statHoliday: 'Stat holiday',
+    sixDayStreak: '6 days in a row',
+    streakDetail: (days, endDate) =>
+      `Longest streak · ${days} ${days === 1 ? 'day' : 'days'}${endDate ? ` (ending ${endDate})` : ''}`,
     statHoursBreakdown: (raw, stat) => `${raw}h worked · ${stat}h stat at 1.5×`,
     shiftsDetail: 'Weekly Shift Details',
     noShifts: 'No shifts assigned this week.',
@@ -117,6 +120,9 @@ export const translations = {
     totalHours: '合計時間',
     weightedHours: '換算時間',
     statHoliday: '法定祝日',
+    sixDayStreak: '6連勤',
+    streakDetail: (days, endDate) =>
+      `最長連勤 · ${days}日${endDate ? `（${endDate}まで）` : ''}`,
     statHoursBreakdown: (raw, stat) => `実働${raw}時間 · 祝日${stat}時間を1.5倍`,
     shiftsDetail: '週間シフト詳細',
     noShifts: '今週のシフトはありません。',

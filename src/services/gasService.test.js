@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildDashboardData, buildDashboardDataWithStreaks } from '../utils/dashboardData';
 import { buildGASPayload } from './gasService';
 import {
   formatTime12,
@@ -342,4 +343,39 @@ describe('buildGASPayload', () => {
       0,
     ]);
   });
+});
+
+it('uses both adjacent weeks for streaks while preserving totals and the GAS payload', () => {
+  const weekId = '2026-W52';
+  const shiftFor = (day, shiftWeekId, staffName) => ({
+    day,
+    weekId: shiftWeekId,
+    staffName,
+    startTime: '09:00',
+    endTime: '11:00',
+    lane: 1,
+    breakHours: 0,
+    totalHours: 2,
+    color: '#bae6fd',
+  });
+  const shifts = [
+    ...DAYS.slice(0, 3).map((day) => shiftFor(day, weekId, 'KANA')),
+    ...DAYS.slice(4).map((day) => shiftFor(day, weekId, 'RYUSHIN')),
+  ];
+  const adjacentShifts = [
+    ...DAYS.slice(4).map((day) => shiftFor(day, '2026-W51', 'KANA')),
+    ...DAYS.slice(0, 3).map((day) => shiftFor(day, '2026-W53', 'RYUSHIN')),
+  ];
+
+  const payloadBefore = buildPayload(shifts, t, staffs, weekId);
+  const totalsBefore = buildDashboardData(staffs, shifts, weekId);
+  const dashboard = buildDashboardDataWithStreaks(staffs, shifts, weekId, adjacentShifts);
+
+  expect(dashboard).toEqual(totalsBefore.map((totals, index) => ({
+    ...totals,
+    longestStreak: 6,
+    hasSixDayStreak: true,
+    streakEndDate: index === 0 ? new Date(2026, 11, 23) : new Date(2026, 11, 30),
+  })));
+  expect(buildPayload(shifts, t, staffs, weekId)).toEqual(payloadBefore);
 });

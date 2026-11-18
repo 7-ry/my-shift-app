@@ -1,4 +1,5 @@
 import { getWeekDates, isStatHoliday } from './helpers';
+import { getStaffStreak } from './streak';
 
 export const isStatShift = (shift, weekId) =>
   isStatHoliday(getWeekDates(shift.weekId ?? weekId)[shift.day]);
@@ -27,4 +28,16 @@ export const buildDashboardData = (staffs, shifts, weekId) => {
       progressPercent: Math.min((weightedHours / staff.target) * 100, 100),
     };
   });
+};
+
+export const buildDashboardDataWithStreaks = (staffs, shifts, weekId, adjacentShifts) => {
+  const currentWeekShifts = shifts
+    .filter((shift) => (shift.weekId ?? weekId) === weekId)
+    .map((shift) => (shift.weekId == null ? { ...shift, weekId } : shift));
+  const streakShifts = [...currentWeekShifts, ...adjacentShifts];
+
+  return buildDashboardData(staffs, shifts, weekId).map((staff) => ({
+    ...staff,
+    ...getStaffStreak(streakShifts, staff.name),
+  }));
 };

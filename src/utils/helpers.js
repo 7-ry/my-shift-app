@@ -172,3 +172,14 @@ export const getCurrentWeekId = (date = new Date()) => {
   const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
   return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
 };
+
+const offsetWeekId = (weekId, days) => {
+  const monday = getWeekDates(weekId).MON;
+  if (!monday) return undefined;
+
+  monday.setDate(monday.getDate() + days);
+  return getCurrentWeekId(monday);
+};
+
+export const prevWeekId = (weekId) => offsetWeekId(weekId, -7);
+export const nextWeekId = (weekId) => offsetWeekId(weekId, 7);

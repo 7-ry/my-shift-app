@@ -1,5 +1,6 @@
 import React from 'react';
 import { isStatShift } from '../utils/dashboardData';
+import { formatShiftDate } from '../utils/helpers';
 
 const StaffDetailModal = ({
   viewingStaffDetail,
@@ -11,8 +12,11 @@ const StaffDetailModal = ({
   timeToMins,
   formatTime12,
   t,
+  lang,
 }) => {
   if (!viewingStaffDetail) return null;
+
+  const { longestStreak, hasSixDayStreak, streakEndDate } = viewingStaffDetail;
 
   return (
     <div
@@ -43,6 +47,9 @@ const StaffDetailModal = ({
           </button>
         </div>
         <div className="max-h-[55vh] overflow-y-auto p-8 space-y-4">
+          <p className={`text-sm font-bold ${hasSixDayStreak ? 'text-amber-800' : 'text-slate-600'}`}>
+            {t.streakDetail(longestStreak, streakEndDate && formatShiftDate(streakEndDate, lang))}
+          </p>
           {shifts
             .filter((s) => s.staffName === viewingStaffDetail.name)
             .sort(
