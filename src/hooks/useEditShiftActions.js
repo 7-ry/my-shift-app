@@ -1,5 +1,6 @@
 import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { isWithinTableHours } from '../utils/helpers';
 
 export const useEditShiftActions = ({
   editingShift,
@@ -14,6 +15,10 @@ export const useEditShiftActions = ({
   const onSave = async (e) => {
     if (e) e.preventDefault();
     if (isProcessing || !editingShift || isReadOnly) return;
+    if (!isWithinTableHours(editingShift.startTime, editingShift.endTime)) {
+      window.alert(t.invalidTableHours);
+      return;
+    }
     setIsProcessing(true);
     try {
       const total = calcTotalHours(

@@ -7,6 +7,7 @@ import {
   getSheetCellByRow,
   getSheetRowNum,
   getWeekDisplayVerbose,
+  isWithinTableHours,
   minsToTime,
   timeToMins,
 } from './helpers';
@@ -94,5 +95,30 @@ describe('week helpers', () => {
   it('returns an empty string for invalid week ids', () => {
     expect(getWeekDisplayVerbose('', 'en')).toBe('');
     expect(getWeekDisplayVerbose('not-a-week', 'ja')).toBe('');
+  });
+});
+
+describe('isWithinTableHours', () => {
+  it.each([
+    ['09:00', '09:30'],
+    ['23:00', '23:30'],
+    ['10:00', '10:01'],
+  ])('accepts %s–%s', (start, end) => {
+    expect(isWithinTableHours(start, end)).toBe(true);
+  });
+
+  it.each([
+    ['08:59', '09:30'],
+    ['23:01', '23:30'],
+    ['09:00', '09:29'],
+    ['23:00', '23:31'],
+    ['23:00', '24:00'],
+    ['22:00', '02:00'],
+    ['12:00', '12:00'],
+    ['12:00', '11:59'],
+    ['09:60', '11:00'],
+    ['09:00', ''],
+  ])('rejects %s–%s', (start, end) => {
+    expect(isWithinTableHours(start, end)).toBe(false);
   });
 });

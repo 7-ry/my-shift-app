@@ -1,5 +1,7 @@
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
+import { TABLE_HOURS } from '../constants/config';
+import { isWithinTableHours } from '../utils/helpers';
 
 export const useShiftCreation = ({
   isProcessing,
@@ -17,6 +19,11 @@ export const useShiftCreation = ({
 }) => {
   const handleAddShift = async (day, time, lane) => {
     if (isProcessing || !selectedStaff || isReadOnly || isEditLocked) return; // 🌟 isReadOnly を追加
+    const startMins = timeToMins(time);
+    const endStr = minsToTime(
+      Math.min(startMins + 120, timeToMins(TABLE_HOURS.latestEnd))
+    );
+    if (!isWithinTableHours(time, endStr)) return;
     setIsProcessing(true);
     const staffInfo = staffs.find((s) => s.name === selectedStaff);
     const dayIndexMap = {
@@ -38,8 +45,6 @@ export const useShiftCreation = ({
         return;
       }
     }
-    const startMins = timeToMins(time);
-    const endStr = minsToTime(Math.min(startMins + 120, timeToMins('23:30')));
     const total = calcTotalHours(time, endStr, 0, 15); // 🌟 第4引数に 15
     const newShift = {
       staffName: selectedStaff,

@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { TABLE_HOURS } from '../constants/config';
+import { isWithinTableHours } from '../utils/helpers';
 
 export const useShiftDrag = ({
   shifts,
@@ -63,6 +65,11 @@ export const useShiftDrag = ({
         .elementsFromPoint(e.clientX, e.clientY)
         .find((el) => el.tagName === 'TD' && el.dataset.day);
 
+      const earliestStart = timeToMins(TABLE_HOURS.earliestStart);
+      const latestStart = timeToMins(TABLE_HOURS.latestStart);
+      const earliestEnd = timeToMins(TABLE_HOURS.earliestEnd);
+      const latestEnd = timeToMins(TABLE_HOURS.latestEnd);
+
       setShifts((prev) =>
         prev.map((s) => {
           if (s.id !== dragInfo.id) return s;
@@ -71,23 +78,25 @@ export const useShiftDrag = ({
             nD = s.day,
             nL = s.lane;
           if (dragInfo.type === 'move') {
-            nS += deltaMins;
-            nE += deltaMins;
+            const offset = Math.max(
+              earliestStart - nS,
+              earliestEnd - nE,
+              Math.min(deltaMins, latestStart - nS, latestEnd - nE)
+            );
+            nS += offset;
+            nE += offset;
             if (targetTd) {
               nD = targetTd.dataset.day;
               nL = Number(targetTd.dataset.lane);
             }
           } else if (dragInfo.type === 'resize-top') {
-            nS += deltaMins;
+            nS = Math.max(earliestStart, Math.min(nS + deltaMins, latestStart, nE - 15));
           } else if (dragInfo.type === 'resize-bottom') {
-            nE += deltaMins;
+            nE = Math.min(latestEnd, Math.max(nE + deltaMins, earliestEnd, nS + 15));
           }
-          const limitStart = timeToMins('09:00'),
-            limitEnd = timeToMins('24:00');
-          nS = Math.max(limitStart, Math.min(nS, nE - 15));
-          nE = Math.min(limitEnd, Math.max(nE, nS + 15));
           const sStr = minsToTime(nS),
             eStr = minsToTime(nE);
+          if (!isWithinTableHours(sStr, eStr)) return s;
           return {
             ...s,
             startTime: sStr,
@@ -134,7 +143,11 @@ export const useShiftDrag = ({
       setIsActuallyDragging(false);
 
       // ★実際に移動が行われていた場合のみFirebaseを更新
-      if (wasDragging && finalShift) {
+      if (
+        wasDragging &&
+        finalShift &&
+        isWithinTableHours(finalShift.startTime, finalShift.endTime)
+      ) {
         try {
           const shiftRef = doc(db, 'shifts', draggedId);
           await updateDoc(shiftRef, {
