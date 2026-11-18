@@ -1,6 +1,9 @@
 import React from 'react';
+import { formatShiftDate, getWeekDates, isStatHoliday } from '../utils/helpers';
 
 const ShiftTable = ({
+  weekId,
+  lang,
   DAYS,
   LANES,
   TIMES,
@@ -21,6 +24,9 @@ const ShiftTable = ({
   staffs,
   selectedStaff,
 }) => {
+  const weekDates = getWeekDates(weekId);
+  const today = new Date().toDateString();
+
   return (
     <div className="sticky top-16 md:top-[72px] z-30 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden relative border-t-2 border-t-slate-900 transition-all duration-300">
       <div
@@ -37,15 +43,32 @@ const ShiftTable = ({
               <th className="w-16 border-b border-r-2 border-slate-200 bg-slate-50 sticky left-0 top-0 z-50 p-2 text-[10px] font-black text-slate-400 uppercase h-12">
                 {t.time}
               </th>
-              {DAYS.map((day) => (
-                <th
-                  key={day}
-                  colSpan={4}
-                  className="border-b border-r-2 border-slate-200 bg-white p-3 text-center font-black text-slate-800 tracking-widest text-sm"
-                >
-                  {day}
-                </th>
-              ))}
+              {DAYS.map((day) => {
+                const date = weekDates[day];
+                const isToday = date?.toDateString() === today;
+                return (
+                  <th
+                    key={day}
+                    colSpan={4}
+                    aria-current={isToday ? 'date' : undefined}
+                    className={`border-b border-r-2 border-slate-200 p-3 text-center font-black tracking-widest text-sm ${
+                      isToday
+                        ? 'bg-blue-100 text-blue-900'
+                        : isStatHoliday(date)
+                          ? 'bg-red-100 text-red-900'
+                          : 'bg-white text-slate-800'
+                    }`}
+                  >
+                    {day}
+                    {date && (
+                      <>
+                        {' '}
+                        <span>{formatShiftDate(date, lang)}</span>
+                      </>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>

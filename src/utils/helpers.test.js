@@ -1,18 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { DAYS } from '../constants/config';
 import {
   calcTotalHours,
+  formatShiftDate,
   formatTime12,
   getColumnLetter,
   getCurrentWeekId,
   getSheetCellByRow,
   getSheetRowNum,
+  getWeekDates,
   getWeekDisplayVerbose,
+  isStatHoliday,
   isWithinTableHours,
   minsToTime,
   timeToMins,
 } from './helpers';
-
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 describe('time helpers', () => {
   it('converts HH:mm strings to minutes', () => {
@@ -78,6 +80,44 @@ describe('Google Sheet coordinate helpers', () => {
 });
 
 describe('week helpers', () => {
+  it('maps every weekday of 2026-W01 to its local calendar date in order', () => {
+    const dates = getWeekDates('2026-W01');
+    expect(Object.keys(dates)).toEqual(DAYS);
+    expect(Object.values(dates)).toEqual([
+      new Date(2025, 11, 29),
+      new Date(2025, 11, 30),
+      new Date(2025, 11, 31),
+      new Date(2026, 0, 1),
+      new Date(2026, 0, 2),
+      new Date(2026, 0, 3),
+      new Date(2026, 0, 4),
+    ]);
+  });
+
+  it('keeps the first days of January in the previous ISO year in week 53', () => {
+    const dates = getWeekDates('2026-W53');
+    expect(dates.MON).toEqual(new Date(2026, 11, 28));
+    expect(dates.FRI).toEqual(new Date(2027, 0, 1));
+    expect(dates.SUN).toEqual(new Date(2027, 0, 3));
+  });
+
+  it('starts ISO week 1 after January 1 when January 1 is a Sunday', () => {
+    expect(getWeekDates('2023-W01').MON).toEqual(new Date(2023, 0, 2));
+  });
+
+  it('returns no dates for an invalid or nonexistent ISO week', () => {
+    expect(getWeekDates('not-a-week')).toEqual({});
+    expect(getWeekDates('2027-W53')).toEqual({});
+  });
+
+  it('formats compact shift dates using the app language', () => {
+    const { MON, FRI } = getWeekDates('2026-W01');
+    expect(formatShiftDate(MON, 'en')).toBe('12/29');
+    expect(formatShiftDate(MON, 'ja')).toBe('12/29');
+    expect(formatShiftDate(FRI, 'en')).toBe('01/02');
+    expect(formatShiftDate(FRI, 'ja')).toBe('1/2');
+  });
+
   it('returns current ISO-style week ids for known calendar dates', () => {
     expect(getCurrentWeekId(new Date(2026, 4, 3))).toBe('2026-W18');
     expect(getCurrentWeekId(new Date(2026, 4, 4))).toBe('2026-W19');
@@ -95,6 +135,24 @@ describe('week helpers', () => {
   it('returns an empty string for invalid week ids', () => {
     expect(getWeekDisplayVerbose('', 'en')).toBe('');
     expect(getWeekDisplayVerbose('not-a-week', 'ja')).toBe('');
+  });
+});
+
+describe('isStatHoliday', () => {
+  it('recognizes Christmas Day and New Year’s Day across ISO weeks', () => {
+    expect(isStatHoliday(getWeekDates('2026-W52').FRI)).toBe(true);
+    expect(isStatHoliday(getWeekDates('2026-W53').FRI)).toBe(true);
+  });
+
+  it('excludes Boxing Day, Easter Monday, and a regular weekday', () => {
+    expect(isStatHoliday(new Date(2026, 11, 26))).toBe(false);
+    expect(isStatHoliday(new Date(2026, 3, 6))).toBe(false);
+    expect(isStatHoliday(new Date(2027, 0, 5))).toBe(false);
+  });
+
+  it('returns false when no holiday data is available for the date', () => {
+    expect(isStatHoliday(new Date(2028, 0, 1))).toBe(false);
+    expect(isStatHoliday(undefined)).toBe(false);
   });
 });
 
