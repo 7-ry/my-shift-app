@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { useClearWeek } from '../hooks/useClearWeek';
 
 const Header = ({
@@ -24,6 +24,7 @@ const Header = ({
   setIsEditLocked,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const headerRef = useRef(null);
   const menuRef = useRef(null);
   const { handleClearWeek } = useClearWeek({
     shifts,
@@ -42,27 +43,43 @@ const Header = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [setShowMenu]);
 
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    const container = header.parentElement;
+    const updateHeaderHeight = () => {
+      container.style.setProperty('--mobile-header-height', `${header.getBoundingClientRect().height}px`);
+    };
+
+    updateHeaderHeight();
+    const observer = new ResizeObserver(updateHeaderHeight);
+    observer.observe(header, { box: 'border-box' });
+    return () => {
+      observer.disconnect();
+      container.style.removeProperty('--mobile-header-height');
+    };
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 shadow-lg px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px] max-md:h-28 max-md:gap-1 max-md:px-3 max-md:py-2">
+    <header ref={headerRef} className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 shadow-lg px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4 h-[72px] max-md:grid max-md:grid-cols-1 max-md:h-auto max-md:gap-1.5 max-md:px-3 max-md:py-2">
       {' '}
-      <div className="flex items-center gap-3 md:gap-5 min-w-fit max-md:min-w-0 max-md:w-full max-md:justify-between max-md:gap-1">
+      <div className="flex items-center gap-3 md:gap-5 min-w-fit max-md:min-w-0 max-md:w-full max-md:justify-between max-md:gap-2">
         <div className="flex flex-col">
-          <h1 className="text-lg max-md:text-sm md:text-xl font-black tracking-tight text-white leading-none">
+          <h1 className="text-lg max-md:text-sm max-[359px]:text-[10px] md:text-xl font-black tracking-tight text-white leading-none max-md:leading-none">
             <span className="">SAKU</span>{' '}
             <span className="text-yellow-500 font-bold not-italic">
               Burquitlam
             </span>{' '}
           </h1>
-          <span className="text-[10px] font-black text-white uppercase mt-1 tracking-large">
+          <span className="text-[10px] max-md:leading-tight font-black text-white uppercase mt-1 tracking-large">
             {' '}
             {getWeekDisplayVerbose(weekId, lang)}
           </span>
         </div>
-        <div className="flex items-center bg-white/10 rounded-xl p-1 gap-1 text-white border border-white/5">
+        <div className="flex items-center bg-white/10 rounded-xl p-1 max-md:p-0.5 gap-1 max-md:shrink-0 text-white border border-white/5">
           {' '}
           <button
             onClick={() => changeWeek(-1)}
-            className="w-8 max-md:w-7 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-all"
+            className="w-8 max-md:w-7 h-8 max-md:h-7 flex items-center justify-center hover:bg-white/20 rounded-lg transition-all"
           >
             ◀
           </button>
@@ -71,7 +88,7 @@ const Header = ({
               type="week"
               value={weekId}
               onChange={(e) => setWeekId(e.target.value)}
-              className="bg-transparent border-none text-xs font-black w-32 max-md:w-20 text-center focus:ring-0"
+              className="bg-transparent border-none text-xs font-black w-32 max-md:w-20 min-[390px]:max-md:w-28 text-center focus:ring-0"
             />
             <div className="absolute inset-0 pointer-events-none bg-transparent group-hover:bg-black/5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               <span className="text-[10px] bg-slate-800 text-white px-1.5 rounded uppercase">
@@ -81,7 +98,7 @@ const Header = ({
           </div>
           <button
             onClick={() => changeWeek(1)}
-            className="w-8 max-md:w-7 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-all"
+            className="w-8 max-md:w-7 h-8 max-md:h-7 flex items-center justify-center hover:bg-white/20 rounded-lg transition-all"
           >
             ▶
           </button>
@@ -94,12 +111,12 @@ const Header = ({
           </button>
         </div>
       </div>
-      <div className="flex items-center gap-2 flex-1 justify-end min-w-0 max-md:basis-full">
+      <div className="flex items-center gap-2 flex-1 justify-end min-w-0 max-md:gap-1.5">
         {!isReadOnly && (
           <button
             onClick={() => setIsEditLocked(!isEditLocked)}
             title={isEditLocked ? t.unlockTitle : t.lockTitle}
-            className={`w-10 h-10 border-2 flex items-center justify-center rounded-full transition-all active:scale-90 ${
+            className={`w-10 h-10 max-md:w-9 max-md:h-9 border-2 flex items-center justify-center rounded-full transition-all active:scale-90 ${
               isEditLocked
                 ? 'bg-yellow-400 border-slate-300 text-slate-400'
                 : 'bg-slate-100 border-yellow-500 text-slate-900 shadow-[0_0_15px_rgba(250,204,21,0.4)]'
@@ -111,15 +128,15 @@ const Header = ({
 
         <button
           onClick={() => setLang(lang === 'en' ? 'ja' : 'en')}
-          className="w-10 h-10 border-2 border-slate-950 md:border-white/70 text-slate-950 md:text-white bg-white md:bg-transparent rounded-full font-black text-xs hover:bg-white/10 transition-all uppercase"
+          className="w-10 h-10 max-md:w-9 max-md:h-9 border-2 border-slate-950 md:border-white/70 text-slate-950 md:text-white bg-white md:bg-transparent rounded-full font-black text-xs hover:bg-white/10 transition-all uppercase"
         >
           {lang}
         </button>
-        <div className="md:hidden flex-1 max-w-[120px]">
+        <div className="md:hidden flex-1 min-w-0">
           <select
             value={selectedStaff}
             onChange={(e) => setSelectedStaff(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none"
+            className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold outline-none"
           >
             {staffs.map((s) => (
               <option key={s.id} value={s.name}>
@@ -148,7 +165,7 @@ const Header = ({
         <div className="relative flex-shrink-0" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="w-10 h-10 border-2 border-white/70 flex items-center justify-center text-white font-black rounded-full hover:bg-white/10 text-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)] active:scale-90"
+            className="w-10 h-10 max-md:w-9 max-md:h-9 border-2 border-white/70 flex items-center justify-center text-white font-black rounded-full hover:bg-white/10 text-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)] active:scale-90"
           >
             ⚙️
           </button>

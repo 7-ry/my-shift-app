@@ -30,7 +30,7 @@ export default function MobileScheduleTabs({ activeTab, onTabChange, t, children
 
   return (
     <>
-      <div className="sticky top-28 z-40 grid h-10 grid-cols-2 border-b border-slate-200 bg-white md:hidden">
+      <div className="sticky top-[var(--mobile-header-height)] z-40 grid h-10 grid-cols-2 border-b border-slate-200 bg-white md:hidden">
         {[
           ['shift', t.shiftTableTab],
           ['totals', t.totalsTab],

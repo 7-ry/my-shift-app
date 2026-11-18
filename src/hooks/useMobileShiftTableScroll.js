@@ -11,7 +11,7 @@ export const useMobileShiftTableScroll = (weekId, days) => {
     const scroller = scrollRef.current;
     const timeHeader = timeHeaderRef.current;
     const dayHeaders = Array.from(scroller.querySelectorAll('th[data-day]'));
-    const desktop = window.matchMedia('(min-width: 768px)');
+    const desktop = window.matchMedia('(min-width: 1024px)');
     let needsInitialScroll = true;
 
     const updateVisibleDay = () => {
