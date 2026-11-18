@@ -10,6 +10,7 @@ import {
   getSheetRowNum,
   getWeekDates,
   getWeekDisplayVerbose,
+  isStatHoliday,
   isWithinTableHours,
   minsToTime,
   timeToMins,
@@ -134,6 +135,24 @@ describe('week helpers', () => {
   it('returns an empty string for invalid week ids', () => {
     expect(getWeekDisplayVerbose('', 'en')).toBe('');
     expect(getWeekDisplayVerbose('not-a-week', 'ja')).toBe('');
+  });
+});
+
+describe('isStatHoliday', () => {
+  it('recognizes Christmas Day and New Year’s Day across ISO weeks', () => {
+    expect(isStatHoliday(getWeekDates('2026-W52').FRI)).toBe(true);
+    expect(isStatHoliday(getWeekDates('2026-W53').FRI)).toBe(true);
+  });
+
+  it('excludes Boxing Day, Easter Monday, and a regular weekday', () => {
+    expect(isStatHoliday(new Date(2026, 11, 26))).toBe(false);
+    expect(isStatHoliday(new Date(2026, 3, 6))).toBe(false);
+    expect(isStatHoliday(new Date(2027, 0, 5))).toBe(false);
+  });
+
+  it('returns false when no holiday data is available for the date', () => {
+    expect(isStatHoliday(new Date(2028, 0, 1))).toBe(false);
+    expect(isStatHoliday(undefined)).toBe(false);
   });
 });
 

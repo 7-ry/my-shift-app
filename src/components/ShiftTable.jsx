@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatShiftDate, getWeekDates } from '../utils/helpers';
+import { formatShiftDate, getWeekDates, isStatHoliday } from '../utils/helpers';
 
 const ShiftTable = ({
   weekId,
@@ -52,7 +52,11 @@ const ShiftTable = ({
                     colSpan={4}
                     aria-current={isToday ? 'date' : undefined}
                     className={`border-b border-r-2 border-slate-200 p-3 text-center font-black tracking-widest text-sm ${
-                      isToday ? 'bg-blue-100 text-blue-900' : 'bg-white text-slate-800'
+                      isToday
+                        ? 'bg-blue-100 text-blue-900'
+                        : isStatHoliday(date)
+                          ? 'bg-red-100 text-red-900'
+                          : 'bg-white text-slate-800'
                     }`}
                   >
                     {day}

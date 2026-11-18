@@ -1,4 +1,4 @@
-import { DAYS, TABLE_HOURS } from '../constants/config';
+import { BC_STAT_HOLIDAYS, DAYS, TABLE_HOURS } from '../constants/config';
 
 // --- 🌟 ヘルパー関数 ---
 export const getColumnLetter = (colIndex) => {
@@ -111,6 +111,17 @@ export const getWeekDates = (weekId) => {
       return [day, date];
     })
   );
+};
+
+export const isStatHoliday = (date) => {
+  const year = date?.getFullYear();
+  const holidays = BC_STAT_HOLIDAYS[year];
+  if (!holidays) return false;
+
+  // Match the local calendar date used by getWeekDates.
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return holidays.includes(`${year}-${month}-${day}`);
 };
 
 export const formatShiftDate = (date, lang = 'en') =>
