@@ -107,19 +107,21 @@ function updateDashboardSheet(ss, rows, weekLabel) {
   const sheet = ss.getSheetByName('DASHBOARD');
   if (!sheet) return;
 
+  const columnCount = 7;
   if (sheet.getMaxRows() > 2) {
     sheet
-      .getRange(3, 1, sheet.getMaxRows() - 2, 6)
+      .getRange(3, 1, sheet.getMaxRows() - 2, columnCount)
       .clearContent()
       .clearDataValidations();
   }
 
   sheet.getRange('A1').setValue(`Summary: ${weekLabel}`);
+  sheet.getRange('G2').setValue('Weighted Hours');
 
   if (rows.length > 0) {
-    const range = sheet.getRange(3, 1, rows.length, 6);
+    const range = sheet.getRange(3, 1, rows.length, columnCount);
     range
-      .setValues(rows)
+      .setValues(rows.map((row) => (row.length === 6 ? [...row, ''] : row)))
       .setHorizontalAlignment('center')
       .setBorder(
         true,

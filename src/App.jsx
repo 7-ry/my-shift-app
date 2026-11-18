@@ -132,7 +132,7 @@ function App() {
     t,
   });
 
-  const dashboardData = buildDashboardData(staffs, shifts);
+  const dashboardData = buildDashboardData(staffs, shifts, weekId);
 
   // 1. Login
   if (loading) {
@@ -221,6 +221,8 @@ function App() {
       <StaffDetailModal
         viewingStaffDetail={viewingStaffDetail}
         setViewingStaffDetail={setViewingStaffDetail}
+        setEditingShift={setEditingShift}
+        weekId={weekId}
         shifts={shifts}
         DAYS={DAYS}
         timeToMins={timeToMins}

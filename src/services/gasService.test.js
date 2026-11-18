@@ -30,11 +30,11 @@ const staffs = [
   { name: 'RYUSHIN', target: 8 },
 ];
 
-const buildPayload = (shifts, translations = t, staffRows = staffs) =>
+const buildPayload = (shifts, translations = t, staffRows = staffs, weekId = '2026-W19') =>
   buildGASPayload({
     shifts,
     staffs: staffRows,
-    weekId: '2026-W19',
+    weekId,
     lang: 'en',
     t: translations,
     helpers,
@@ -55,7 +55,7 @@ describe('buildGASPayload', () => {
     expect(payload.weekLabel).toBe('May 4 - May 10');
   });
 
-  it('keeps scheduleCommands, dashboardRows, and shiftDataRows shapes stable', () => {
+  it('appends one dashboard column and preserves the schedule and shift data shapes', () => {
     const payload = buildPayload([
       {
         day: 'MON',
@@ -75,7 +75,7 @@ describe('buildGASPayload', () => {
       'value',
       'color',
     ]);
-    expect(payload.dashboardRows.every((row) => row.length === 6)).toBe(true);
+    expect(payload.dashboardRows.every((row) => row.length === 7)).toBe(true);
     expect(payload.shiftDataRows.every((row) => row.length === 7)).toBe(true);
   });
 
@@ -267,6 +267,7 @@ describe('buildGASPayload', () => {
       '',
       -1,
       '⚠️ OVER',
+      9,
     ]);
   });
 
@@ -301,7 +302,31 @@ describe('buildGASPayload', () => {
       '',
       2.25,
       'AVAIL',
+      5.75,
     ]);
+  });
+
+  it('appends weighted hours while keeping the original columns based on raw hours', () => {
+    const christmasShift = {
+      day: 'FRI',
+      staffName: 'KANA',
+      startTime: '09:00',
+      endTime: '13:00',
+      lane: 1,
+      breakHours: 0,
+      totalHours: 4,
+      color: '#bae6fd',
+    };
+    const boxingDayShift = {
+      ...christmasShift,
+      day: 'SAT',
+      endTime: '12:00',
+      totalHours: 3,
+    };
+    const payload = buildPayload([christmasShift, boxingDayShift], t, staffs, '2026-W52');
+
+    expect(payload.dashboardRows[0]).toEqual(['KANA', 7, 8, '', 1, 'AVAIL', 9]);
+    expect(payload.shiftDataRows.map((row) => row[6])).toEqual([4, 3]);
   });
 
   it('uses zero current hours for staff with no shifts', () => {
@@ -314,6 +339,7 @@ describe('buildGASPayload', () => {
       '',
       6,
       'AVAIL',
+      0,
     ]);
   });
 });

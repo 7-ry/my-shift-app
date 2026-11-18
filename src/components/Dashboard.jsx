@@ -38,6 +38,11 @@ const Dashboard = ({ dashboardData, setViewingStaffDetail, t }) => {
                   / {d.target}h
                 </span>
               </div>
+              {d.statHours > 0 && (
+                <div className="relative z-10 mt-1 text-[10px] font-bold text-amber-800">
+                  {t.statHoursBreakdown(d.rawHours, d.statHours)}
+                </div>
+              )}
               <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden relative z-10">
                 <div
                   className={`h-full rounded-full transition-all duration-700 ease-out ${
